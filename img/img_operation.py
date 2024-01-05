@@ -335,7 +335,7 @@ def pre_process2(roi_list,armor_color:str)->list:
     t2=cv2.getTickCount()
     time=(t2-t1)/cv2.getTickFrequency()
     return out,time
-@timing
+@timing()
 def pre_process3(roi_transform_list:list,armor_color:str='red',strech_max:Optional[int]=None,trace:bool=True)->list:
     '''
     @timing\n

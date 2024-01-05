@@ -6,7 +6,7 @@ import sys
 sys.path.append('..')
 sys.path.append('../camera')
 from os_op.thread_op import *
-from crc import *
+from com_tools import *
 import img.img_operation as imo
 import cv2
 from motor_params import *
