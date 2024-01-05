@@ -1,0 +1,11 @@
+{
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}/img",
+        "${workspaceFolder}/camera",
+        "${workspaceFolder}/label_op",
+        "${workspaceFolder}/os_op",
+        "${workspaceFolder}/port_slavedevice",
+        "${workspaceFolder}/port_socket",
+        "${workspaceFolder}/utils_network",
+    ]
+}

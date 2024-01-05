@@ -1,0 +1,4 @@
+target/0.png 1
+target/1.png 1
+none/honkai.jpg 0
+none/rgb.jpg 0
