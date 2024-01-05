@@ -10,7 +10,8 @@ from utils_network.actions import *
 from torch.utils.data import Subset
 
 
-onnx_filename = './weights/83_opt_Qstatic.onnx'
+onnx_filename = './weights/old83.onnx'
+
 single_file_path = './res/dog1.jpg'
 
 """
@@ -21,7 +22,7 @@ mode:
 3: multi input, torch reference
 
 """
-mode = 1
+mode = 3
 
 
 
@@ -46,7 +47,7 @@ if mode == 0:
     
     
 elif mode ==1:
-    onnx_engine = Onnx_Engine(onnx_filename,if_offline=False)
+    onnx_engine = Onnx_Engine(onnx_filename,if_offline=True)
 
     dataset = datasets.ImageFolder(val_root_path,val_trans)
     subset = get_subset(dataset,[1000,1500])

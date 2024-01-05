@@ -26,7 +26,7 @@ weights_savelocal_path = './local_weights'
 
 predict_cat_path = './res/cat.1.jpg'
 predict_dog_path = './res/dog3.jpg'
-trained_weights_path = './weights/new/weights.0.83.9.pth'
+trained_weights_path = './weights/weights.0.83.9.pth'
 
 
 ori_onnx_path = './weights/old83.onnx'

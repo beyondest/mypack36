@@ -485,9 +485,8 @@ class Data:
                         do_constant_folding=True,               #True
                         dynamic_axes = dynamic_axes,            #specify which axe is dynamic
                         keep_initializers_as_inputs=False,      #if True, then you can change weights of onnx if model is same   
-                        custom_opsets=None,                     #custom operation, such as lambda x:abs(x),of course not so simple, you have to register to pytorch if you want to use custom op
-                        export_modules_as_functions=False,      #False
-                        autograd_inlining=True)                 #True
+                        custom_opsets=None                 #custom operation, such as lambda x:abs(x),of course not so simple, you have to register to pytorch if you want to use custom op
+                        )                 
 
         print(f'ori_onnx model saved to {output_abs_path}')
     
