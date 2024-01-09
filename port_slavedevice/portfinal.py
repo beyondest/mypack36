@@ -139,7 +139,7 @@ if __name__ == "__main__":
     
     ser = port_open(port_abs_path='COM3')
     hcamera =cac.camera_init(out_put_format=mvsdk.CAMERA_MEDIA_TYPE_BGR8)
-    cac.isp_init(hcamera)
+    cac.set_isp(hcamera)
     camera_info = cac.get_all(hcamera)
     cac.print_getall(camera_info)
     pframe_buffer_addr = cac.camera_setframebuffer()

@@ -5,12 +5,12 @@
 
 import sys
 sys.path.append('..')
-import mvsdk
+import camera.mvsdk as mvsdk
 import cv2
 import numpy as np
 import platform
 import os
-
+from typing import Optional,Union
 #gamma,exposure_time_us,rgb_gain,analog_gain,saturation,sharpness,contrast
 isp_params_list=[]  
 #for red
@@ -23,6 +23,8 @@ filter_params_list=[]
 
 #for blue and red
 filter_params_list.append([(1, 277),156,1911,484,(13, 180),(2, 89)])
+
+
 
 def camera_open(hcamera):
     '''
@@ -86,7 +88,7 @@ def camera_init(out_put_format=mvsdk.CAMERA_MEDIA_TYPE_YUV8_UYV):
     return hcamera
 
 
-def isp_init(hcamera,
+def set_isp(hcamera,
              exposure_time_us=10*1000,
              gamma=30,
              r_gain=100,
@@ -360,7 +362,6 @@ def track_bar_set_default():
     '''
     after visualize isp_config\n
     use this to set trackbar position
-    
     '''
     cv2.setTrackbarPos('gamma','isp_config',30)
     cv2.setTrackbarPos('exposure_time_us','isp_config',100) 
@@ -460,11 +461,10 @@ def trackbar_set_isp(hcamera):
     contrast=cv2.getTrackbarPos('contrast','isp_config')
     
     
-    
     try:
-        isp_init(hcamera,exposure_time_us,gamma,r_gain,g_gain,b_gain,saturation=saturation,contrast=contrast,sharpness=sharpness,analog_gain=analog_gain)
+        set_isp(hcamera,exposure_time_us,gamma,r_gain,g_gain,b_gain,saturation=saturation,contrast=contrast,sharpness=sharpness,analog_gain=analog_gain)
     except:
-        print('isp_init failed')
+        print('set_isp failed')
 
 def trackbar_set_filter()->tuple:
     global filter_params_list

@@ -21,7 +21,7 @@ cv2.namedWindow('camera',cv2.WINDOW_AUTOSIZE)
 cv2.setMouseCallback('camera',mouse_callback,pp)
 
 hcamera = control.camera_init(out_put_format=mvsdk.CAMERA_MEDIA_TYPE_BGR8)
-control.isp_init(hcamera)
+control.set_isp(hcamera)
 camera_info=control.get_all(hcamera)
 control.print_getall(camera_info)
 #out=control.save_video_camera_init(out_path,name='out.mp4',codec='AVC1')

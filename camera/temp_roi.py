@@ -5,6 +5,8 @@ import img.img_operation as imo
 import os
 import control
 import sys
+import test
+
 out_path='D:/tmdvs/pywork/vsRM/test'
 armor_color='red'
 
@@ -14,7 +16,7 @@ def for_trackbar(x):
 
 
 hcamera=control.camera_init()
-control.isp_init(hcamera)
+control.set_isp(hcamera)
 #out=control.save_video_camera_init(out_path,name='out.mp4',codec='AVC1')
 
 
