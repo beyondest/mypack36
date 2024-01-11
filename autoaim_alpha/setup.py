@@ -1,11 +1,11 @@
-from setuptools import setup
+from setuptools import setup,find_packages
 
 package_name = 'autoaim_alpha'
 
 setup(
     name=package_name,
-    version='0.0.1',
-    packages=[package_name],
+    version='0.0.0',
+    packages=find_packages(),
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
@@ -13,15 +13,15 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='ggbond',
+    maintainer='liyuxuan',
     maintainer_email='liyuxuan12345678@outlook.com',
     description='TODO: Package description',
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'my_node_webcam         = autoaim_alpha:node_webcam:main',
-            'my_node_img_processor  = autoaim_alpha.node_img_processor:main'
+            'node_webcam_mv = autoaim_alpha.node_webcam_mv:main',
+            'node_img_processor = autoaim_alpha.node_img_processor:main'
         ],
     },
 )
