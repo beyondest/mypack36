@@ -67,5 +67,29 @@ class SV:
     @value.setter
     def value(self, new_value):
         self._value = new_value
-
+        
+        
+class Context:
+    def __init__(self,
+                 context_name:str,
+                 obj_with_start_end_errorhandler,
+                 ) -> None:
+        self.context_name = context_name
+        self.obj_with_start_end_errorhandler = obj_with_start_end_errorhandler
+    def __enter__(self):
+        try:
+            self.obj_with_start_end_errorhandler._start()
+            lr1.info(f"OS_OP : Enter context {self.context_name} Success")
+        except:
+            lr1.error(f"OS_OP : Enter Context {self.context_name} failed")
+        
+        
+        
+    def __exit__(self,exc_type,exc_value,traceback):
+        if exc_type is not None:
+            self.obj_with_start_end_errorhandler._errorhandler(exc_value)
+        
+        self.obj_with_start_end_errorhandler._end()
+        lr1.info(f"OS_OP : Exit context {self.context_name} Success")
+    
 

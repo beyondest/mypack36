@@ -1,0 +1,5 @@
+2024-01-11 02:45:29,834 - logger1 - INFO - CAMERA : CAMERA id 0 init success
+2024-01-11 02:45:30,902 - logger1 - INFO - CAMERA : camera id 0 , nickname None start play
+2024-01-11 02:45:30,903 - logger1 - INFO - OS_OP : Enter context camera Success
+2024-01-11 02:46:02,488 - logger1 - INFO - CAMERA : camera id 0 , nickname None closed
+2024-01-11 02:46:02,489 - logger1 - INFO - OS_OP : Exit context camera Success

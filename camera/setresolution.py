@@ -12,11 +12,11 @@ mvsdk.CAMERA_MEDIA_TYPE_BAYBG8  # 17301515
 mvsdk.CAMERA_MEDIA_TYPE_YUV8_UYV  # 35127328
 mvsdk.CAMERA_MEDIA_TYPE_BAYGB8  # 17301514
 mvsdk.CAMERA_MEDIA_TYPE_BGR8    # 35127317
-
+mvsdk.tSdkImageResolution       #iWidthFOV, iHeightFOV;iWidthZoomSw:1000,iHeightZoomSw:100
 
 #320 256 640 512
 
-if 0:
+if 1:
     r = mvsdk.CameraSetImageResolutionEx(       hCamera=h,
                                             iIndex=0xff,
                                             Mode=0,
@@ -25,10 +25,9 @@ if 0:
                                             y=256,
                                             width=640,
                                             height=512,
-                                            ZoomWidth=0,
-                                            ZoomHeight=0)
+                                            ZoomWidth=1000,
+                                            ZoomHeight=100)
+    print(r)
 
-
-
-print(mvsdk.CameraGetIspOutFormat(h))
-
+res = mvsdk.CameraGetImageResolution(h)
+print(res)
