@@ -24,11 +24,10 @@ class Isp_Params:
         self.sharpness = CAMERA_SHARPNESS_DEFAULT
         self.saturation = CAMERA_SATURATION_DEFAULT
         self.contrast = CAMERA_CONTRAST_DEFAULT
+        self.grab_resolution_wid = CAMERA_RESOLUTION_DEFAULT_XY[0] 
+        self.grab_resolution_hei = CAMERA_RESOLUTION_DEFAULT_XY[1]
         
-        
-        self.resolution_wid = CAMERA_RESOLUTION_DEFAULT_XY[0]
-        self.resolution_hei = CAMERA_RESOLUTION_DEFAULT_XY[1]
-        
+
 
         if len(self) != len(ISP_PARAMS_SCOPE_LIST):
             lr1.critical(f"CAMERA : camera params length not match CAMERA_PARAMS_SCOPE_LIST , {len(self)} = {len(ISP_PARAMS_SCOPE_LIST)}")
@@ -79,15 +78,15 @@ class Mindvision_Camera:
                  if_auto_exposure:bool = False,
                  if_trigger_by_software:bool = False,
                  camera_run_platform:str = 'linux',
-                 if_show_init_params:bool = True
+                 if_show_camera_params:bool = True,
+                 if_use_default_params:bool = True
                  ) -> None:
         
         if camera_run_platform != 'linux' and camera_run_platform != 'windows':
             lr1.error(f'CAMERA: camera_run_platform {camera_run_platform} wrong, must be windows or linux')
             
         self.isp_params = Isp_Params()
-        self.isp_params = Isp_Params()
-        self.roi_resolution = CAMERA_RESOLUTION_DEFAULT_XY
+        self.roi_resolution_xy = CAMERA_ROI_RESOLUTION_DEFAULT_XY
         self.camera_run_platform = camera_run_platform
         self.if_trigger_by_software = if_trigger_by_software
         self.device_id = device_id
@@ -95,11 +94,16 @@ class Mindvision_Camera:
         self.output_format = output_format
         self.if_auto_exposure = if_auto_exposure
         self.hcamera = self._init()
-
-
         
-        if if_show_init_params:
+        if if_use_default_params:
+            self._isp_config_by_isp_params()
+            self.change_roi(self.roi_resolution_xy[0],self.roi_resolution_xy[1])    
+        
+        self._update_camera_isp_params()
+        
+        if if_show_camera_params:
             self.isp_params.print_show_all()
+            print(f"roi resolution: {self.roi_resolution_xy}")
             print(f'device id: {self.device_id}')
             print(f'device nickname: {self.device_nickname}')
             print(f'output_format: {self.output_format}')
@@ -110,15 +114,15 @@ class Mindvision_Camera:
     def enable_trackbar_config(self,window_name:str):
         
         self.isp_window_name = window_name
-        self._visualize_isp_config_by_trackbar()        
+        self._visualize_isp_config_by_isp_params()        
     
     def load_params_from_yaml(self,yaml_path:str):
         
         self.isp_params.load_params_from_yaml(yaml_path)
-        self._isp_config_by_trackbar()
+        self._isp_config_by_isp_params()
     
     
-    
+
     def get_img_continous(self):
         
         prawdata,pframehead=mvsdk.CameraGetImageBuffer(self.hcamera,CAMERA_GRAB_IMG_WATI_TIME_MS)
@@ -128,7 +132,8 @@ class Mindvision_Camera:
         mvsdk.CameraFlipFrameBuffer(self.pframebuffer_address,pframehead,self.camera_run_platform=='windows')
         frame_data = (mvsdk.c_ubyte * pframehead.uBytes).from_address(self.pframebuffer_address)
         frame = np.frombuffer(frame_data, dtype=np.uint8)
-        dst=frame.reshape((self.isp_params.resolution_hei,self.isp_params.resolution_wid,CAMERA_CHANNEL_NUMS))
+        dst=frame.reshape((self.roi_resolution_xy[1],self.roi_resolution_xy[0],CAMERA_CHANNEL_NUMS))
+        dst = cv2.resize(dst,(self.isp_params.grab_resolution_wid,self.isp_params.grab_resolution_hei))
         
         return dst
         
@@ -148,17 +153,20 @@ class Mindvision_Camera:
             mvsdk.CameraSoftTrigger(self.hcamera)
             return None
             
+            
         mvsdk.CameraSoftTrigger(self.hcamera) 
         mvsdk.CameraImageProcess(self.hcamera,
                                  pbyIn=prawdata,
                                  pbyOut=self.pframebuffer_address,
                                  pFrInfo=pframehead)
+        
         mvsdk.CameraReleaseImageBuffer(self.hcamera,prawdata)
         
         mvsdk.CameraFlipFrameBuffer(self.pframebuffer_address,pframehead,self.camera_run_platform == 'windows')
         frame_data = (mvsdk.c_ubyte * pframehead.uBytes).from_address(self.pframebuffer_address)
         frame = np.frombuffer(frame_data,dtype=np.uint8)
-        dst  = frame.reshape((self.isp_params.resolution_hei,self.isp_params.resolution_wid,CAMERA_CHANNEL_NUMS))
+        dst  = frame.reshape((self.roi_resolution_xy[1],self.roi_resolution_xy[0],CAMERA_CHANNEL_NUMS))
+        dst = cv2.resize(dst,(self.isp_params.grab_resolution_wid,self.isp_params.grab_resolution_hei))
         
         return dst
     
@@ -172,8 +180,6 @@ class Mindvision_Camera:
                    sharpness:Union[int,None] = None,
                    saturation:Union[int,None] = None,
                    contrast:Union[int,None] = None,
-                   resolution_xy:Union[list,None] = None,
-                   
                    ):
         
         if exposure_time_us is not None:
@@ -213,32 +219,16 @@ class Mindvision_Camera:
             self.isp_params.contrast = contrast
             mvsdk.CameraSetContrast(self.hcamera,self.isp_params.contrast)
 
-        if resolution_xy is not None:
-            
-            resolution_xy[0] = CLAMP(resolution_xy[0],ISP_PARAMS_SCOPE_LIST[9],True)
-            resolution_xy[1] = CLAMP(resolution_xy[1],ISP_PARAMS_SCOPE_LIST[10],True)
-            self.isp_params.resolution_wid = resolution_xy[0]
-            self.isp_params.resolution_hei = resolution_xy[1]
-            mvsdk.CameraSetImageResolutionEx(self.hcamera,
-                                             0xff,
-                                             0,
-                                             0,
-                                             0,
-                                             0,
-                                             CAMERA_RESOLUTION_DEFAULT_XY[0],
-                                             CAMERA_RESOLUTION_DEFAULT_XY[1],
-                                             resolution_xy[0],
-                                             resolution_xy[1]
-                                             )
+
         
     
     def change_roi(self,
-                   x,
-                   y,
                    wid,
                    hei,
-                   final_wid,
-                   final_hei):
+                   x = 0,
+                   y = 0,
+                   final_wid = 0,
+                   final_hei = 0):
         
         mvsdk.CameraSetImageResolutionEx(self.hcamera,
                                          0xff,
@@ -302,18 +292,16 @@ class Mindvision_Camera:
         self.isp_params.contrast = mvsdk.CameraGetContrast(self.hcamera)
         
         resolution = mvsdk.CameraGetImageResolution(self.hcamera)
-        self.isp_params.resolution_wid = resolution.iWidth 
-        self.isp_params.resolution_hei = resolution.iHeight
+        self.roi_resolution_xy[0] = resolution.iWidth 
+        self.roi_resolution_xy[1] = resolution.iHeight
 
          
-    def _visualize_isp_config_by_trackbar(self):
-        self.ok = False
+    def _visualize_isp_config_by_isp_params(self):
+
         def for_trackbar(x):
             
-            if self.ok:
-                self._update_camera_isp_params_from_trackbar()
-                self._isp_config_by_trackbar()
-        
+            pass
+
         cv2.namedWindow(self.isp_window_name,cv2.WINDOW_FREERATIO)
         for index,name in enumerate(vars(self.isp_params).keys() ):
             cv2.createTrackbar(name ,
@@ -324,8 +312,7 @@ class Mindvision_Camera:
             
         self._update_camera_isp_params()
         self._set_trackbar_pos_by_present_params()
-        self.ok =True
-        
+                
     def _set_trackbar_pos_by_present_params(self):
         
         reflect_dict = vars(self.isp_params)
@@ -340,7 +327,7 @@ class Mindvision_Camera:
         for key in reflect_dict.keys():
             reflect_dict[key] = cv2.getTrackbarPos(key,self.isp_window_name)
 
-    def _isp_config_by_trackbar(self):
+    def _isp_config_by_isp_params(self):
         """Only for trackbar callback
         """
             
@@ -358,23 +345,14 @@ class Mindvision_Camera:
 
         mvsdk.CameraSetContrast(self.hcamera,self.isp_params.contrast)
 
-        mvsdk.CameraSetImageResolutionEx(self.hcamera,
-                                         0xff,
-                                         0,
-                                         0,
-                                         0,
-                                         0,
-                                         self.isp_params.resolution_wid,
-                                         self.isp_params.resolution_hei,
-                                         0,
-                                         0)
+
     
         
         
         
     
     def _start(self):
-        self.pframebuffer_address = mvsdk.CameraAlignMalloc(self.roi_resolution[0] * self.roi_resolution[1] * CAMERA_CHANNEL_NUMS,
+        self.pframebuffer_address = mvsdk.CameraAlignMalloc(self.roi_resolution_xy[0] * self.roi_resolution_xy[1] * CAMERA_CHANNEL_NUMS,
                                                             CAMERA_ALIGN_BYTES_NUMS)
         mvsdk.CameraClearBuffer(self.hcamera)
         mvsdk.CameraPlay(self.hcamera)
@@ -399,25 +377,34 @@ class Mindvision_Camera:
 
 if __name__ == "__main__":
     
-    ca = Mindvision_Camera(if_trigger_by_software=False)
+    ca = Mindvision_Camera(if_trigger_by_software=False,if_use_default_params=True)
     fps = 0
     ca.enable_trackbar_config('config')
     with Context('camera',ca):
         while 1:
+            
             t1 = time.perf_counter()
             
 
             img = ca.get_img_continous()
             
-            imo.add_text(img,'fps',fps,scale_size=1)
+            
+            ca._update_camera_isp_params_from_trackbar()
+            ca._isp_config_by_isp_params()
+            imo.add_text(img,'FPS',fps,scale_size=1)
+            
             cv2.imshow('h',img)
             
             t2 = time.perf_counter()
+            
             t = t2 - t1
             fps = round(1/t)
             
+            
+          
             if cv2.waitKey(1) ==27:
                 break
+        
         
     cv2.destroyAllWindows()
         

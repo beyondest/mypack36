@@ -1,0 +1,2 @@
+2024-01-11 03:27:49,079 - logger1 - CRITICAL - CAMERA : camera params length not match CAMERA_PARAMS_SCOPE_LIST , 10 = 11
+2024-01-11 03:27:50,573 - logger1 - INFO - CAMERA : CAMERA id 0 init success
