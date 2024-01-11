@@ -20,6 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'my_node_webcam         = autoaim_alpha:node_webcam:main',
+            'my_node_img_processor  = autoaim_alpha.node_img_processor:main'
         ],
     },
 )

@@ -1,7 +1,7 @@
 from typing import Any, Union,Optional
 import sys
 sys.path.append('..')
-from logger.global_logger import *
+from os_op.global_logger import *
 
 
 def CLAMP(x,scope:list,if_should_be_in_scope:bool = False):
@@ -69,13 +69,19 @@ class SV:
         self._value = new_value
         
         
-class Context:
+class Custome_Context:
     def __init__(self,
                  context_name:str,
                  obj_with_start_end_errorhandler,
                  ) -> None:
         self.context_name = context_name
         self.obj_with_start_end_errorhandler = obj_with_start_end_errorhandler
+        if  self.obj_with_start_end_errorhandler._start is None\
+            or self.obj_with_start_end_errorhandler._end is None\
+            or self.obj_with_start_end_errorhandler._errorhandler is None:
+            lr1.critical(f"OS_OP : Context init failed, obj of {context_name} has no _start or _end or _errorhandler") 
+            raise TypeError("OP_OP")   
+        
     def __enter__(self):
         try:
             self.obj_with_start_end_errorhandler._start()

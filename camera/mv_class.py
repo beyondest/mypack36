@@ -2,7 +2,7 @@ import sys
 sys.path.append('..')
 import camera.mvsdk as mvsdk
 from typing import Union,Optional
-from logger.global_logger import lr1
+from os_op.global_logger import lr1
 from utils_network.data import *
 from os_op.basic import *
 from mv_const import *
@@ -74,7 +74,7 @@ class Mindvision_Camera:
     def __init__(self,
                  device_id:int = 0,
                  device_nickname:Union[str,None] = None,
-                 output_format:str = "RGB8",
+                 output_format:str = "BGR8",
                  if_auto_exposure:bool = False,
                  if_trigger_by_software:bool = False,
                  camera_run_platform:str = 'linux',
@@ -389,7 +389,7 @@ if __name__ == "__main__":
     ca = Mindvision_Camera(if_trigger_by_software=False,if_use_default_params=True)
     fps = 0
     ca.enable_trackbar_config('config')
-    with Context('camera',ca):
+    with Custome_Context('camera',ca):
         while 1:
             
             t1 = time.perf_counter()
