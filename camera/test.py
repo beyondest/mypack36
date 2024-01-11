@@ -111,9 +111,10 @@ class Mindvision_Camera:
             print(f'trigger mode: {trigger_mode}')        
     
             
-    def enable_trackbar_config(self,window_name:str):
+    def enable_trackbar_config(self,window_name:str,save_yaml_path:str = './trackbar_params.yaml'):
         
         self.isp_window_name = window_name
+        self.save_yaml_path = save_yaml_path
         self._visualize_isp_config_by_isp_params()        
     
     def load_params_from_yaml(self,yaml_path:str):
@@ -241,7 +242,17 @@ class Mindvision_Camera:
                                          final_wid,
                                          final_hei)
         
-
+    def detect_trackbar_actions_when_isp_config(self):
+        
+        self._update_camera_isp_params_from_trackbar()
+        self._isp_config_by_isp_params()
+        
+        if cv2.waitKey(1) & 0xff == ord('s'):
+            print(f'Params Save to {self.save_yaml_path}')
+            data = vars(self.isp_params)
+            with open(self.save_yaml_path,'a') as file:
+                yaml.dump(data,file,default_flow_style=False)
+                
     
     def _init(self):
         
@@ -321,15 +332,13 @@ class Mindvision_Camera:
     
     def _update_camera_isp_params_from_trackbar(self):
         
-        """Only for trackbar callback
-        """
+        
         reflect_dict = vars(self.isp_params)
         for key in reflect_dict.keys():
             reflect_dict[key] = cv2.getTrackbarPos(key,self.isp_window_name)
 
     def _isp_config_by_isp_params(self):
-        """Only for trackbar callback
-        """
+        
             
         mvsdk.CameraSetExposureTime(self.hcamera,self.isp_params.exposure_time_us)
         
@@ -389,8 +398,7 @@ if __name__ == "__main__":
             img = ca.get_img_continous()
             
             
-            ca._update_camera_isp_params_from_trackbar()
-            ca._isp_config_by_isp_params()
+            ca.detect_trackbar_actions_when_isp_config()
             imo.add_text(img,'FPS',fps,scale_size=1)
             
             cv2.imshow('h',img)
@@ -402,7 +410,7 @@ if __name__ == "__main__":
             
             
           
-            if cv2.waitKey(1) ==27:
+            if cv2.waitKey(1) & 0xff == ord('q'):
                 break
         
         
