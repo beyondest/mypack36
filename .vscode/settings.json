@@ -1,11 +1,11 @@
 {
     "python.analysis.extraPaths": [
-        "${workspaceFolder}/img",
-        "${workspaceFolder}/camera",
-        "${workspaceFolder}/label_op",
-        "${workspaceFolder}/os_op",
-        "${workspaceFolder}/port_slavedevice",
-        "${workspaceFolder}/port_socket",
-        "${workspaceFolder}/utils_network",
+        "${workspaceFolder}/autoaim_alpha/autoaim_alpha/img",
+        "${workspaceFolder}/autoaim_alpha/autoaim_alpha/camera",
+        "${workspaceFolder}/autoaim_alpha/autoaim_alpha/label_op",
+        "${workspaceFolder}/autoaim_alpha/autoaim_alpha/os_op",
+        "${workspaceFolder}/autoaim_alpha/autoaim_alpha/port_slavedevice",
+        "${workspaceFolder}/autoaim_alpha/autoaim_alpha/port_socket",
+        "${workspaceFolder}/autoaim_alpha/autoaim_alpha/utils_network",
     ]
 }

@@ -75,7 +75,7 @@ class Mindvision_Camera:
     def __init__(self,
                  device_id:int = 0,
                  device_nickname:Union[str,None] = None,
-                 output_format:str = "BGR8",
+                 output_format:str = CAMERA_OUTPUT_DEFAULT,
                  if_auto_exposure:bool = False,
                  if_trigger_by_software:bool = False,
                  camera_run_platform:str = 'linux',
@@ -88,6 +88,7 @@ class Mindvision_Camera:
             
         self.isp_params = Isp_Params()
         self.roi_resolution_xy = CAMERA_ROI_RESOLUTION_DEFAULT_XY
+        self.fps = CAMERA_FPS_DEFAULT
         self.camera_run_platform = camera_run_platform
         self.if_trigger_by_software = if_trigger_by_software
         self.device_id = device_id
@@ -99,7 +100,8 @@ class Mindvision_Camera:
         if if_use_default_params:
             self._isp_config_by_isp_params()
             self.change_roi(self.roi_resolution_xy[0],self.roi_resolution_xy[1])    
-        
+            self.change_fps(self.fps)
+            
         self._update_camera_isp_params()
         
         if if_show_camera_params:
@@ -109,7 +111,8 @@ class Mindvision_Camera:
             print(f'device nickname: {self.device_nickname}')
             print(f'output_format: {self.output_format}')
             trigger_mode = 'software trigger' if if_trigger_by_software else 'continous'
-            print(f'trigger mode: {trigger_mode}')        
+            print(f'trigger mode: {trigger_mode}')     
+            print(f"fps: {self.fps}")   
     
             
     def enable_trackbar_config(self,window_name:str,save_yaml_path:str = './trackbar_params.yaml'):
@@ -127,16 +130,20 @@ class Mindvision_Camera:
 
     def get_img_continous(self):
         
+        t1 = time.perf_counter()
         prawdata,pframehead=mvsdk.CameraGetImageBuffer(self.hcamera,CAMERA_GRAB_IMG_WATI_TIME_MS)
+        #prawdata,pframehead = mvsdk.CameraGetImageBufferPriority(self.hcamera,CAMERA_GRAB_IMG_WATI_TIME_MS,0)
+        t2 = time.perf_counter()
         mvsdk.CameraImageProcess(self.hcamera,prawdata,self.pframebuffer_address,pframehead)
         mvsdk.CameraReleaseImageBuffer(self.hcamera,prawdata)
-        
         mvsdk.CameraFlipFrameBuffer(self.pframebuffer_address,pframehead,self.camera_run_platform=='windows')
-        frame_data = (mvsdk.c_ubyte * pframehead.uBytes).from_address(self.pframebuffer_address)
+        frame_data = (mvsdk.c_ubyte * pframehead.uBytes).from_address(self.pframebuffer_address)        # make an array with size ubyte (8) and length uBytes
         frame = np.frombuffer(frame_data, dtype=np.uint8)
         dst=frame.reshape((self.roi_resolution_xy[1],self.roi_resolution_xy[0],CAMERA_CHANNEL_NUMS))
         dst = cv2.resize(dst,(self.isp_params.grab_resolution_wid,self.isp_params.grab_resolution_hei))
-        
+        print('*****************')
+        print('get img buffer',t2-t1)
+
         return dst
         
     
@@ -222,7 +229,9 @@ class Mindvision_Camera:
             mvsdk.CameraSetContrast(self.hcamera,self.isp_params.contrast)
 
 
-        
+    def change_fps(self,fps:int):
+        self.fps = fps
+        mvsdk.CameraSetFrameSpeed(self.hcamera,self.fps)
     
     def change_roi(self,
                    wid,
@@ -242,6 +251,7 @@ class Mindvision_Camera:
                                          hei,
                                          final_wid,
                                          final_hei)
+        self.roi_resolution_xy = [wid,hei]
         
     def detect_trackbar_actions_when_isp_config(self):
         
@@ -307,6 +317,7 @@ class Mindvision_Camera:
         resolution = mvsdk.CameraGetImageResolution(self.hcamera)
         self.roi_resolution_xy[0] = resolution.iWidth 
         self.roi_resolution_xy[1] = resolution.iHeight
+        self.fps = mvsdk.CameraGetFrameSpeed(self.hcamera)
 
          
     def _visualize_isp_config_by_isp_params(self):
