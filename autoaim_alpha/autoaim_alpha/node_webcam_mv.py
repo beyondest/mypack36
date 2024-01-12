@@ -1,6 +1,4 @@
-import sys
-sys.path.append('..')
-from autoaim_alpha.autoaim_alpha import *
+from . import *
 
 from rclpy.node import Node
 import cv_bridge
@@ -8,9 +6,9 @@ from rclpy.context import Context
 from rclpy.parameter import Parameter
 import rclpy.qos
 from sensor_msgs.msg import Image
-from camera.mv_class import Mindvision_Camera
 
-from os_op.basic import *
+from .camera.mv_class import *
+
 
 
 class Node_Webcam_MV(Node):
@@ -21,8 +19,8 @@ class Node_Webcam_MV(Node):
         super().__init__(name)
         
 
-        self.publisher = self.create_publisher(Image,topic_img_raw,qos_profile=qos_profile_img_raw)
-        self.timer_pub_img = self.create_timer(time_s,)
+        self.publisher = self.create_publisher(Image,topic_img_raw,qos_profile=10)
+        self.timer_pub_img = self.create_timer(time_s,self.timer_pub_img_callback)
         self.cv_bridge = cv_bridge.CvBridge()
         self.mv = Mindvision_Camera()
         
@@ -54,7 +52,7 @@ def main(args = None):
     
     rclpy.init(args=args)
     
-    node = Node_Webcam_MV(node_webcam_mv,0.01)
+    node = Node_Webcam_MV(node_webcam_mv,1/node_webcam_mv_frequency)
     
     with Custome_Context(node_webcam_mv,node):
         rclpy.spin(node)

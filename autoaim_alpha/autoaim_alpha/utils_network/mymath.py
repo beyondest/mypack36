@@ -2,7 +2,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 import inspect
-from utils_network.data import *
+from .data import *
 
 
 import math

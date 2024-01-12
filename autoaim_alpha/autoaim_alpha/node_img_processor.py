@@ -1,37 +1,48 @@
-import sys
-sys.path.append('../..')
-from autoaim_alpha.autoaim_alpha import *
+
+from . import *
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 import cv2
 import numpy as np
-from os_op.basic import *
-from camera.mv_class import *
+import time
 
+from .img import img_operation as imo
 
 class Node_Img_Processer(Node):
+    
     def __init__(self,name):
+        
         super().__init__(name)
-        self.sub = self.create_subscription(Image,topic_img_raw,qos_profile=qos_profile_img_raw,callback=self.sub_callback)
+        self.sub = self.create_subscription(Image,topic_img_raw,qos_profile=10,callback=self.sub_callback)
         self.cv_bridge = CvBridge()
+        self.pre_time = time.perf_counter()
+        self.fps = 0
         
         
     def process(self,img:np.ndarray):
+        
         if img is not None:
+        
+            self.get_logger().info('Receive img success')
+            imo.add_text(img,'FPS',self.fps,scale_size=1)
             cv2.imshow('h',img)
+            cur_time = time.perf_counter()
+            self.fps = 1/(cur_time-self.pre_time)
+            self.pre_time = cur_time
+            
+            cv2.waitKey(1)
         else:
-            print('Receive None')
+            self.get_logger().info("Receive None")
         
         
     
     def sub_callback(self,data):
-        self.get_logger().info("Receive img success")
         img = self.cv_bridge.imgmsg_to_cv2(data,img_type)
         self.process(img)
         
     def _start(self):
-        cv2.namedWindow('h',cv2.WINDOW_NORMAL)
+        cv2.namedWindow('h',cv2.WINDOW_AUTOSIZE)
         self.get_logger().info(f"Node Img Processer start success")
     
     def _end(self):
@@ -44,6 +55,7 @@ class Node_Img_Processer(Node):
     
     
 def main(args = None):
+    
     rclpy.init(args=args)
     node = Node_Img_Processer(node_img_processer)
     with Custome_Context(node_img_processer,node):
@@ -51,7 +63,6 @@ def main(args = None):
     rclpy.shutdown()
         
         
-
 
 
 

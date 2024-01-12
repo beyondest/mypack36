@@ -1,6 +1,6 @@
 import sys
 sys.path.append('..')
-from os_op.mylog import *
+from .mylog import *
 
 
 DEBUG = 10

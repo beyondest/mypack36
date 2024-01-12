@@ -1,15 +1,16 @@
 import sys
 sys.path.append('..')
-import camera.mvsdk as mvsdk
-from typing import Union,Optional
-from os_op.global_logger import lr1
-from utils_network.data import *
-from os_op.basic import *
-from camera.mv_const import *
-import img.img_operation as imo
+from ..camera import mvsdk
+from ..camera.mv_const import *
+from ..os_op.basic import *
+from ..os_op.global_logger import *
+from ..utils_network import data
 
+import yaml
+import time
+import numpy as np
 import cv2
-
+from typing import Union,Optional
 
 def fuck(x):
     pass
@@ -45,7 +46,7 @@ class Isp_Params:
         
         reflect_dict =vars(self)
         setted_list = []
-        info = Data.get_file_info_from_yaml(yaml_path)
+        info = data.Data.get_file_info_from_yaml(yaml_path)
         
         if len(info) != len(reflect_dict) :
             lr1.error(f"CAMERA : {yaml_path} has wrong params length {len(info)} , expected {len(reflect_dict)}")
@@ -385,39 +386,6 @@ class Mindvision_Camera:
 
 
 
-if __name__ == "__main__":
-    
-    ca = Mindvision_Camera(if_trigger_by_software=False,if_use_default_params=True)
-    fps = 0
-    ca.enable_trackbar_config('config')
-    with Custome_Context('camera',ca):
-        while 1:
-            
-            t1 = time.perf_counter()
-            
-
-            img = ca.get_img_continous()
-            
-            
-            ca.detect_trackbar_actions_when_isp_config()
-            imo.add_text(img,'FPS',fps,scale_size=1)
-            
-            cv2.imshow('h',img)
-            
-            t2 = time.perf_counter()
-            
-            t = t2 - t1
-            fps = round(1/t)
-            
-            
-          
-            if cv2.waitKey(1) & 0xff == ord('q'):
-                break
-        
-        
-    cv2.destroyAllWindows()
-        
-        
         
     
     

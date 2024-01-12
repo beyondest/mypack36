@@ -1,7 +1,8 @@
-from typing import Any, Union,Optional
+
 import sys
 sys.path.append('..')
-from os_op.global_logger import *
+from typing import Any, Union,Optional
+from .global_logger import *
 
 
 def CLAMP(x,scope:list,if_should_be_in_scope:bool = False):

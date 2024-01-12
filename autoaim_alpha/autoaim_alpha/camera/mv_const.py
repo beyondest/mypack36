@@ -1,6 +1,5 @@
-from camera import mvsdk
 
-
+from ..camera import mvsdk
 CAMERA_TYPE_TO_SHOW_DICT =    {mvsdk.CAMERA_MEDIA_TYPE_RGB8:"RGB8",
                                mvsdk.CAMERA_MEDIA_TYPE_BGR8:"BGR8",
                                mvsdk.CAMERA_MEDIA_TYPE_YUV8_UYV:"YUV8",

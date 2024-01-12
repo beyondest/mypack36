@@ -1,4 +1,3 @@
-from typing import Any
 import numpy as np
 import random 
 import time
@@ -6,10 +5,10 @@ import matplotlib.pyplot as plt
 import math
 import sys
 sys.path.append('..')
-from utils_network.mymath import *
+from .mymath import *
 import torch
-from utils_network.mymodel import *
-import os_op.os_operation as oso
+from .mymodel import *
+from ..os_op import os_operation as oso
 import os
 import yaml
 from torch.utils.data import Dataset,DataLoader
@@ -22,7 +21,6 @@ import concurrent.futures
 import threading
 import cv2
 from PIL import Image
-import img.img_operation as imo
 import PIL as pil
 from typing import Union,Optional
 import onnxruntime

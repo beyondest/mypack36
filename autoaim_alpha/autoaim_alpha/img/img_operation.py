@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 import math
 import sys
 sys.path.append('..')
-import os_op.os_operation as oso
-from os_op.decorator import *
+from ..os_op import os_operation as oso
+from ..os_op.decorator import *
 from typing import Optional,Union
 #yuv_range:
 #red:152-255,v
