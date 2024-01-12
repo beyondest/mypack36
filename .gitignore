@@ -1,8 +1,5 @@
-datasets/*
-olessons/multiclassification/out/*
-olessons/multiclassification/data/*
-olessons/multiclassification/out2/*
-install/*
+*.log
 
-
-
+autoaim_alpha/custom_log/*
+autoaim_alpha/camera/custom_log/*
+autoaim_alpha/Camera/*
