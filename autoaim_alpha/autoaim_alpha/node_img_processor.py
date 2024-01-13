@@ -25,7 +25,9 @@ class Node_Img_Processer(Node):
         if img is not None:
         
             self.get_logger().info('Receive img success')
+            imo.pre_process3
             imo.add_text(img,'FPS',self.fps,scale_size=1)
+            
             cv2.imshow('h',img)
             cur_time = time.perf_counter()
             self.fps = 1/(cur_time-self.pre_time)
@@ -35,7 +37,7 @@ class Node_Img_Processer(Node):
         else:
             self.get_logger().info("Receive None")
         
-        
+    
     
     def sub_callback(self,data):
         img = self.cv_bridge.imgmsg_to_cv2(data,img_type)

@@ -36,40 +36,93 @@ def target_find(img_ori:np.ndarray,armor_color:str,filter_params:list)->tuple:
     all_time=t1+t2+t3+t4
     return draw_img,roi_single_list,all_time
 
-def find_armor_beta(img_bgr:np.ndarray,
+def find_armor_debug(img_bgr:np.ndarray,
+                     img_bgr_exposure2:np.ndarray,
                     color = 'red',
-                    trace:bool=False,
-                    if_draw:bool = True)->list:
-    """Find center list of input image
-    If if_draw, only show center and rec only and if only there is single target detected
+                    if_print_time:bool = True
+                    )->list:
+    """Get center list and roi transform list
+
     Args:
-        color: red or blue
+        img_bgr (np.ndarray): _description_
+        img_bgr_exposure2 (np.ndarray): _description_
+        color (str, optional): _description_. Defaults to 'red'.
 
     Returns:
-        list: Center list
+        [center_list, roi_transfomr_list, all_spend_time]
     """
-    img,_ = pre_process(img_bgr,color)
-    rec_list,_ = find_big_rec(img,trace)
-    center_list = turn_big_rec_list_to_center_points_list(rec_list)
-    if if_draw and len(center_list)==1:
-        cv2.circle(img_bgr,center_list[0],10,(255,0,0),-1)
-        draw_big_rec(rec_list,img_bgr,True)
-    return center_list
+    img_single,pre_process_time = pre_process_debug(  img_rgb=img_bgr,
+                                                        armor_color=color)
+    
+    cv2.imshow('single_after_preprocess',img_single)
+    big_rec_list ,find_big_rec_time= find_big_rec(img_single,trace=True)
+    draw_big_rec(big_rec_list,img_bgr,True)
+    center_list = turn_big_rec_list_to_center_points_list(big_rec_list)
+    draw_center_list(center_list,img_bgr)
+    roi_transform_list,pick_up_roi_transform_time = pick_up_roi_transform(big_rec_list,img_bgr_exposure2)
+    if if_print_time:
+        print('pre_process_time',pre_process_time)
+        print('find_big_rec_time',find_big_rec_time)
+        print('pickup_roi_transfomr_time',pick_up_roi_transform_time)
+    
+    return center_list,roi_transform_list,pre_process_time+find_big_rec_time+pick_up_roi_transform_time
 
 ###############################################################
-def pre_process(img_ori:np.ndarray,armor_color:str)->list:
+
+@timing(1)
+def pre_process(img_yuv:np.ndarray,armor_color:str)->Union[list,None]:
     '''
+    @timing
     armor_color = 'red' or 'blue'\n
-    return img_single,time
-    
-    @note input img is BGR !!!
+    return img_single,time \n
+    Warning:  input img is YUV !!!
     '''
-    img_size_yx=(img_ori.shape[0],img_ori.shape[1])
+    if img_yuv is None:
+        return None
+    img_size_yx=(img_yuv.shape[0],img_yuv.shape[1])
     
-    time1=cv2.getTickCount()
+
+    dst=cv2.GaussianBlur(img_yuv,(3,3),1)
     
-    dst=cv2.GaussianBlur(img_ori,(3,3),1)
-    dst=cv2.cvtColor(dst,cv2.COLOR_BGR2YUV)
+    #out of memory error
+    y,u,v=cv2.split(dst)
+    #blue 145-255
+    #red 152-255
+    if armor_color=='blue':
+        dst=cv2.inRange(u.reshape(img_size_yx[0],img_size_yx[1],1),145,255)
+    elif armor_color=='red':
+        dst=cv2.inRange(v.reshape(img_size_yx[0],img_size_yx[1],1),152,255)
+    else:
+        print('armor_color is wrong')
+        sys.exit()
+        
+    #dst=cv2.medianBlur(dst,13)
+    
+    if img_size_yx==(1024,1280):
+        kernel=cv2.getStructuringElement(cv2.MORPH_RECT,(10,10))
+    elif img_size_yx==(256,320):
+        kernel=cv2.getStructuringElement(cv2.MORPH_RECT,(2,2))
+    else:
+        print('imgsize not match, you have to preset preprocess params ')  
+        sys.exit() 
+    dst=cv2.morphologyEx(dst,cv2.MORPH_CLOSE,kernel)
+    return dst
+
+
+@timing(1)
+def pre_process_debug(img_bgr:np.ndarray,armor_color:str)->Union[list,None]:
+    '''
+    @timing
+    armor_color = 'red' or 'blue'\n
+    return img_single,time \n
+    Warning:  input img is YUV !!!
+    '''
+    
+    if img_bgr is None:
+        return None
+    img_size_yx=(img_bgr.shape[0],img_bgr.shape[1])
+    dst=cv2.GaussianBlur(img_bgr,(3,3),1)
+    dst = cv2.cvtColor(img_bgr,cv2.COLOR_BGR2YUV)
     #out of memory error
     y,u,v=cv2.split(dst)
     #blue 145-255
@@ -90,15 +143,9 @@ def pre_process(img_ori:np.ndarray,armor_color:str)->list:
         print('imgsize not match, you have to preset preprocess params ')  
         sys.exit() 
     dst=cv2.morphologyEx(dst,cv2.MORPH_CLOSE,kernel)
-    
-    time2=cv2.getTickCount()
-    time=(time2-time1)/cv2.getTickFrequency()
-    
-    
-    
-    
-    
-    return dst,time
+    return dst
+
+
 
 
 def find_big_rec_plus(img_single:np.ndarray,
@@ -155,12 +202,15 @@ def find_big_rec_plus(img_single:np.ndarray,
     time=(time2-time1)/cv2.getTickFrequency()
     return out_list ,time 
 
+@timing(1)
 def find_big_rec(img_single:np.ndarray,trace:bool=True)->list:
     '''
+    @timing\n
     big_rec is expanded already\n
     return big_rec_list,time
     '''
-    
+    if img_single is None:
+        return None
     img_size_yx=(img_single.shape[0],img_single.shape[1])
     out_list=[]
     if img_size_yx==(1024,1280):
@@ -171,9 +221,6 @@ def find_big_rec(img_single:np.ndarray,trace:bool=True)->list:
         print('img_size not match, you havent preset params of find_big_rec yet')
         sys.exit()
     
-    
-    
-    time1=cv2.getTickCount()
     conts,arrs=cv2.findContours(img_single,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_NONE)
     if trace:
         print('findcontours:',len(conts))
@@ -248,15 +295,15 @@ def find_big_rec(img_single:np.ndarray,trace:bool=True)->list:
         out_list=expand_rec_wid(out_list,expand_rate=2,img_size_yx=img_size_yx)  
         
         
-        
-    time2=cv2.getTickCount()
-    time=(time2-time1)/cv2.getTickFrequency()
-    return out_list ,time 
 
-def draw_big_rec(big_rec_list,img_bgr:np.ndarray,if_draw_on_input:bool = False)->np.ndarray:
+    return out_list  
+
+def draw_big_rec(big_rec_list,img_bgr:np.ndarray,if_draw_on_input:bool = True)->np.ndarray:
     '''
     return img_copy_bgr
     '''
+    if big_rec_list is None:
+        return None
     if img_bgr.shape[2]==1:
         img_bgr=cv2.cvtColor(img_bgr,cv2.COLOR_GRAY2BGR)
     if if_draw_on_input:
@@ -267,6 +314,25 @@ def draw_big_rec(big_rec_list,img_bgr:np.ndarray,if_draw_on_input:bool = False)-
         draw_cont(img_copy,i,2,3)
     return img_copy
     
+def draw_center_list(center_list:list,img_bgr:np.ndarray, if_draw_on_input:bool = True) ->np.ndarray:
+    if center_list is None:
+        return None
+    radius = round((img_bgr.shape[0]+img_bgr.shape[1])/20)
+    color = (0,255,0)
+    if if_draw_on_input:
+        
+        for i in center_list:
+            cv2.circle(img_bgr,center_list,radius,color,-1)
+            
+        return img_bgr
+    
+    else:
+        img = img_bgr.copy()
+        for i in center_list:
+            cv2.circle(img,center_list,radius,color,-1)
+            
+        return img
+  
 def pick_up_roi(big_rec_list,img_ori:np.ndarray)->list:
     '''
     return roi_list,time\n
@@ -291,30 +357,34 @@ def pick_up_roi(big_rec_list,img_ori:np.ndarray)->list:
     t2=cv2.getTickCount()
     time= (t2-t1)/cv2.getTickFrequency()
     return roi_list,time
-def pick_up_roi_transform(rec_list:list,img_ori:np.ndarray,canvas_shape:tuple=(100,100,3))->list:
+
+
+@timing(1)
+def pick_up_roi_transform(rec_list:list,img_ori:np.ndarray)->list:
     '''
-    return roi_transform_list,time\n
+    @timing \n
+    return roi_transform_list\n 
     if nothing find, roi_transform_list[0] is black_canvas of shape(100,100,3)
     '''
-    t1=cv2.getTickCount()
+    if rec_list == None:
+        return None
+    
     roi_transform_list=[]
+    
     for i in rec_list:
+        
         _,_,wid,hei,_,_=getrec_info(i)
         i=Img.Change.order_rec_points(i)
         dst_points=np.array([[0,0],[wid-1,0],[wid-1,hei-1],[0,hei-1]],dtype=np.float32)
         M=cv2.getPerspectiveTransform(i.astype(np.float32),dst_points)
         dst=cv2.warpPerspective(img_ori,M,(int(wid),int(hei)),flags=cv2.INTER_LINEAR)
         roi_transform_list.append(dst)
-    if len(roi_transform_list)==0:
-        canvas=Img.canvas(canvas_shape,color='black')
-        roi_transform_list.append(canvas.img)
-    t2=cv2.getTickCount()
-    time=(t2-t1)/cv2.getTickFrequency()
-    return roi_transform_list,time
+        
+    return roi_transform_list
 
 def pre_process2(roi_list,armor_color:str)->list:
     '''
-    preprocess for finding number\n
+    preprocess for distinguish number\n
     return roi_single_list,time
     '''
     out=[]
@@ -335,26 +405,28 @@ def pre_process2(roi_list,armor_color:str)->list:
     t2=cv2.getTickCount()
     time=(t2-t1)/cv2.getTickFrequency()
     return out,time
+
 @timing()
-def pre_process3(roi_transform_list:list,armor_color:str='red',strech_max:Optional[int]=None,trace:bool=True)->list:
+def pre_process3(roi_transform_list:list,armor_color:str='red',strech_max:Optional[int]=None)->list:
     '''
     @timing\n
+    preprocess for distinguish number 
     return roi_single_list,time
     '''
     roi_single_list=[]
     for i in roi_transform_list:
         dst=cv2.cvtColor(i,cv2.COLOR_BGR2GRAY)
-        if trace:
-            cvshow(dst)
-        
+
         dst=gray_stretch(dst,strech_max)
-        if trace:
-            cvshow(dst)
+
         if armor_color=='red':
             ret,dst=cv2.threshold(dst,127,255,cv2.THRESH_BINARY)
         elif armor_color=='blue':    
             ret,dst=cv2.threshold(dst,90,255,cv2.THRESH_BINARY)
+            
         roi_single_list.append(dst)
+        
+        
     return roi_single_list
     
     
@@ -404,6 +476,7 @@ def add_text(img_bgr:np.ndarray,
              color:tuple=(0,0,0),
              scale_size: float= 0.5
              )->np.ndarray:
+    
     '''
     show name:value on the position of pos(x,y)\n
     if pos =(-1,-1), then auto position\n
@@ -1683,6 +1756,8 @@ def draw_crosshair(img:np.ndarray,color:tuple = (0,255,0),thickness :int =2, len
     return img
 
 def turn_big_rec_list_to_center_points_list(rec_list:list)->list:
+    if rec_list is None:
+        return None
     out = []
     for i in rec_list:
         x,y,_,_,_,_=getrec_info(i)

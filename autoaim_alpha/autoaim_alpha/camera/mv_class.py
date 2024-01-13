@@ -12,21 +12,23 @@ import numpy as np
 import cv2
 from typing import Union,Optional
 
-def fuck(x):
-    pass
 
-class Isp_Params:
+
+class Isp_Params(Params):
     def __init__(self) -> None:
+        
         self.exposure_time_us = CAMERA_EXPOSURE_TIME_US_DEFALUT
         self.gamma = CAMERA_GAMMA_DEFAULT
         self.r_gain,self.g_gain, self.b_gain = CAMERA_GAIN_DEFAULT
         
         self.analog_gain = CAMERA_ANALOG_GAIN_DEFAULT
+        self.analog_gain_x = CAMERA_ANALOG_GAIN_X_DEFAULT
         self.sharpness = CAMERA_SHARPNESS_DEFAULT
         self.saturation = CAMERA_SATURATION_DEFAULT
         self.contrast = CAMERA_CONTRAST_DEFAULT
-        self.grab_resolution_wid = CAMERA_RESOLUTION_DEFAULT_XY[0] 
-        self.grab_resolution_hei = CAMERA_RESOLUTION_DEFAULT_XY[1]
+        self.grab_resolution_wid = CAMERA_GRAB_RESOLUTION_XY_DEFAUT[0] 
+        self.grab_resolution_hei = CAMERA_GRAB_RESOLUTION_XY_DEFAUT[1]
+        self.fps = CAMERA_FPS_DEFAULT
         
 
 
@@ -35,34 +37,10 @@ class Isp_Params:
 
         
         
-    def print_show_all(self):
-        for key, value in vars(self).items():
-            print(f"{key} : {value}")
-            
-    def __len__(self):
-        return len(vars(self))
 
-    def load_params_from_yaml(self,yaml_path:str):
-        
-        reflect_dict =vars(self)
-        setted_list = []
-        info = data.Data.get_file_info_from_yaml(yaml_path)
-        
-        if len(info) != len(reflect_dict) :
-            lr1.error(f"CAMERA : {yaml_path} has wrong params length {len(info)} , expected {len(reflect_dict)}")
             
-        for i,item in enumerate(info.items()):
-            key,value = item
-            if key not in reflect_dict:
-                lr1.error(f"CAMERA : camera params {key} : {value} from {yaml_path} failed, no such key")
-            elif key in setted_list:
-                lr1.error(f"CAMERA : camera params {key} dulplicated")
-            else:
-                value = CLAMP(value,ISP_PARAMS_SCOPE_LIST[i],True)
-                reflect_dict[key] = value
-                
-            setted_list.append(key)
-        
+    
+
         
             
                 
@@ -70,7 +48,7 @@ class Isp_Params:
         
 
 
-class Mindvision_Camera:
+class Mindvision_Camera(Custom_Context_Obj):
     
     def __init__(self,
                  device_id:int = 0,
@@ -79,41 +57,42 @@ class Mindvision_Camera:
                  if_auto_exposure:bool = False,
                  if_trigger_by_software:bool = False,
                  camera_run_platform:str = 'linux',
-                 if_show_camera_params:bool = True,
-                 if_use_default_params:bool = True
+                 if_use_last_params:bool = True,
+                 pingpong_exposure:Union[None,list] = None,
+                 camera_mode:str = 'Dbg''Rel'
                  ) -> None:
         
         if camera_run_platform != 'linux' and camera_run_platform != 'windows':
-            lr1.error(f'CAMERA: camera_run_platform {camera_run_platform} wrong, must be windows or linux')
+            lr1.error(f'CAMERA : camera_run_platform {camera_run_platform} wrong, must be windows or linux')
+        if camera_mode != 'Dbg' and camera_mode != 'Rel':
+            lr1.error(f"CAMERA : camera mode {camera_mode} wrong, must be Dbg or Rel")
             
         self.isp_params = Isp_Params()
-        self.roi_resolution_xy = CAMERA_ROI_RESOLUTION_DEFAULT_XY
-        self.fps = CAMERA_FPS_DEFAULT
-        self.camera_run_platform = camera_run_platform
-        self.if_trigger_by_software = if_trigger_by_software
+
         self.device_id = device_id
         self.device_nickname = device_nickname
+        
         self.output_format = output_format
+        self.if_trigger_by_software = if_trigger_by_software if pingpong_exposure is None else True
         self.if_auto_exposure = if_auto_exposure
+        self.pingpong_exposure = pingpong_exposure
+        self.if_use_last_params = if_use_last_params
+        self.camera_mode = camera_mode
+        self.roi_resolution_xy = CAMERA_ROI_RESOLUTION_XY_DEFAULT
+        self.camera_run_platform = camera_run_platform
+        
+        
+        
         self.hcamera = self._init()
         
-        if if_use_default_params:
+        if not self.if_use_last_params:
             self._isp_config_by_isp_params()
             self.change_roi(self.roi_resolution_xy[0],self.roi_resolution_xy[1])    
-            self.change_fps(self.fps)
             
         self._update_camera_isp_params()
         
-        if if_show_camera_params:
-            self.isp_params.print_show_all()
-            print(f"roi resolution: {self.roi_resolution_xy}")
-            print(f'device id: {self.device_id}')
-            print(f'device nickname: {self.device_nickname}')
-            print(f'output_format: {self.output_format}')
-            trigger_mode = 'software trigger' if if_trigger_by_software else 'continous'
-            print(f'trigger mode: {trigger_mode}')     
-            print(f"fps: {self.fps}")   
-    
+       
+            
             
     def enable_trackbar_config(self,window_name:str,save_yaml_path:str = './trackbar_params.yaml'):
         
@@ -126,69 +105,79 @@ class Mindvision_Camera:
         self.isp_params.load_params_from_yaml(yaml_path)
         self._isp_config_by_isp_params()
     
+    def save_all_params_to_file(self,file_name:str):
+        mvsdk.CameraSaveParameterToFile(self.hcamera,file_name)
+    
+    def save_custom_params_to_yaml(self,yaml_path:str,mode:str = 'w'):
+        self.isp_params.save_params_to_yaml(yaml_path,mode)
+    
+    def print_show_params(self):
+        self.isp_params.print_show_all()
+        print(f"roi resolution: {self.roi_resolution_xy}")
+        print(f'device id: {self.device_id}')
+        print(f'device nickname: {self.device_nickname}')
+        print(f'output_format: {self.output_format}')
+        trigger_mode = 'software trigger' if self.if_trigger_by_software else 'continous'
+        print(f'trigger mode: {trigger_mode}')     
     
 
-    def get_img_continous(self):
+    def get_img(self)->Union[np.ndarray,list]:
+        """
+        Pingpong exposure: odd for exposure[0] , even for exposure[1]
+
+        Returns:
+            dst or [dst , pingpong count]
+        """
+        
         
         t1 = time.perf_counter()
         prawdata,pframehead=mvsdk.CameraGetImageBuffer(self.hcamera,CAMERA_GRAB_IMG_WATI_TIME_MS)
-        #prawdata,pframehead = mvsdk.CameraGetImageBufferPriority(self.hcamera,CAMERA_GRAB_IMG_WATI_TIME_MS,0)
         t2 = time.perf_counter()
+        if self.pingpong_exposure is not None:
+            self.pingpong_count +=1
+            if self.pingpong_count == 10:
+                self.pingpong_count = 0
+            if (self.pingpong_count+1 )% 2:
+                mvsdk.CameraSetExposureTime(self.hcamera,self.pingpong_exposure[0])
+            else:
+                mvsdk.CameraSetExposureTime(self.hcamera,self.pingpong_exposure[1])
+        if self.if_trigger_by_software:
+            mvsdk.CameraSoftTrigger(self.hcamera)
+            
         mvsdk.CameraImageProcess(self.hcamera,prawdata,self.pframebuffer_address,pframehead)
+        t3 = time.perf_counter()
+        
         mvsdk.CameraReleaseImageBuffer(self.hcamera,prawdata)
         mvsdk.CameraFlipFrameBuffer(self.pframebuffer_address,pframehead,self.camera_run_platform=='windows')
         frame_data = (mvsdk.c_ubyte * pframehead.uBytes).from_address(self.pframebuffer_address)        # make an array with size ubyte (8) and length uBytes
         frame = np.frombuffer(frame_data, dtype=np.uint8)
         dst=frame.reshape((self.roi_resolution_xy[1],self.roi_resolution_xy[0],CAMERA_CHANNEL_NUMS))
         dst = cv2.resize(dst,(self.isp_params.grab_resolution_wid,self.isp_params.grab_resolution_hei))
-        print('*****************')
-        print('get img buffer',t2-t1)
+        
+        if self.camera_mode == 'Dbg':
+            print('get buffer:',t2-t1)
+            print('isp:',t3 - t2)
+        
+        if self.pingpong_exposure is not None:
+            return dst,self.pingpong_count
+        else:
+            return dst
 
-        return dst
-        
-    
-    def get_img_softrigger(self)->Union[np.ndarray,None]:
-        
-        """get img in softtrigger mode, perhaps it help raise up FPS
 
-        Returns:
-            np.ndarray if SUCCESS else NONE
-        """
-        prawdata,pframehead =  mvsdk.CameraGetImageBuffer(self.hcamera,CAMERA_GRAB_IMG_WATI_TIME_MS)
-        
-        if prawdata is None:
-            
-            lr1.warning("CAMERA: No img in buffer, enable soft trigger")
-            mvsdk.CameraSoftTrigger(self.hcamera)
-            return None
-            
-            
-        mvsdk.CameraSoftTrigger(self.hcamera) 
-        mvsdk.CameraImageProcess(self.hcamera,
-                                 pbyIn=prawdata,
-                                 pbyOut=self.pframebuffer_address,
-                                 pFrInfo=pframehead)
-        
-        mvsdk.CameraReleaseImageBuffer(self.hcamera,prawdata)
-        
-        mvsdk.CameraFlipFrameBuffer(self.pframebuffer_address,pframehead,self.camera_run_platform == 'windows')
-        frame_data = (mvsdk.c_ubyte * pframehead.uBytes).from_address(self.pframebuffer_address)
-        frame = np.frombuffer(frame_data,dtype=np.uint8)
-        dst  = frame.reshape((self.roi_resolution_xy[1],self.roi_resolution_xy[0],CAMERA_CHANNEL_NUMS))
-        dst = cv2.resize(dst,(self.isp_params.grab_resolution_wid,self.isp_params.grab_resolution_hei))
-        
-        return dst
-    
-        
+
 
     def isp_config(self,
                    exposure_time_us:Union[int,None] = None,
                    gamma:Union[int,None] = None,
                    gain:Union[list,None] = None,
                    analog_gain:Union[int,None] = None,
+                   analog_gain_x:Union[int,None] = None,
                    sharpness:Union[int,None] = None,
                    saturation:Union[int,None] = None,
                    contrast:Union[int,None] = None,
+                   grab_resolution_wid:Union[int,None] = None,
+                   grab_resolution_hei:Union[int,None] = None,
+                   fps:Union[int,None] = None
                    ):
         
         if exposure_time_us is not None:
@@ -212,26 +201,42 @@ class Mindvision_Camera:
             analog_gain = CLAMP(analog_gain,ISP_PARAMS_SCOPE_LIST[5],True)
             self.isp_params.analog_gain = analog_gain
             mvsdk.CameraSetAnalogGain(self.hcamera,analog_gain)
+        
+        if analog_gain_x is not None:
+            analog_gain_x = CLAMP(analog_gain_x,ISP_PARAMS_SCOPE_LIST[6],True)
+            self.isp_params.analog_gain_x = analog_gain_x
+            mvsdk.CameraSetAnalogGainX(self.hcamera,analog_gain_x)
             
         if sharpness is not None:
-            sharpness = CLAMP(sharpness,ISP_PARAMS_SCOPE_LIST[6],True)
+            sharpness = CLAMP(sharpness,ISP_PARAMS_SCOPE_LIST[7],True)
             self.isp_params.sharpness = sharpness
             mvsdk.CameraSetSharpness(self.hcamera,self.isp_params.sharpness)
             
         if saturation is not None: 
-            saturation = CLAMP(saturation,ISP_PARAMS_SCOPE_LIST[7],True)   
+            saturation = CLAMP(saturation,ISP_PARAMS_SCOPE_LIST[8],True)   
             self.isp_params.saturation = saturation    
             mvsdk.CameraSetSaturation(self.hcamera,saturation)
             
         if contrast is not None:
-            contrast = CLAMP(contrast,ISP_PARAMS_SCOPE_LIST[8],True)
+            contrast = CLAMP(contrast,ISP_PARAMS_SCOPE_LIST[9],True)
             self.isp_params.contrast = contrast
             mvsdk.CameraSetContrast(self.hcamera,self.isp_params.contrast)
 
+        if grab_resolution_wid is not None:
+            grab_resolution_wid  = CLAMP(grab_resolution_wid,ISP_PARAMS_SCOPE_LIST[10],True)
+            self.isp_params.grab_resolution_wid = grab_resolution_wid
+            
+        if grab_resolution_hei is not None:
+            grab_resolution_hei = CLAMP(grab_resolution_hei,ISP_PARAMS_SCOPE_LIST[11],True)
+            self.isp_params.grab_resolution_hei = grab_resolution_hei
 
-    def change_fps(self,fps:int):
-        self.fps = fps
-        mvsdk.CameraSetFrameSpeed(self.hcamera,self.fps)
+        if fps is not None:
+            fps = CLAMP(fps,ISP_PARAMS_SCOPE_LIST[12],True)
+            self.fps = fps
+            mvsdk.CameraSetFrameSpeed(self.hcamera,self.fps)
+            
+        
+
     
     def change_roi(self,
                    wid,
@@ -253,6 +258,7 @@ class Mindvision_Camera:
                                          final_hei)
         self.roi_resolution_xy = [wid,hei]
         
+        
     def detect_trackbar_actions_when_isp_config(self):
         
         self._update_camera_isp_params_from_trackbar()
@@ -263,7 +269,8 @@ class Mindvision_Camera:
             data = vars(self.isp_params)
             with open(self.save_yaml_path,'a') as file:
                 yaml.dump(data,file,default_flow_style=False)
-                
+    
+
     
     def _init(self):
         
@@ -271,7 +278,6 @@ class Mindvision_Camera:
             lr1.critical("CAMERA: device_id cannot be None")
             
         dev_info_list = mvsdk.CameraEnumerateDevice()
-        
         if len(dev_info_list) == 0:
             lr1.critical("CAMERA: no camera found")
             raise TypeError("no camera found")
@@ -293,13 +299,16 @@ class Mindvision_Camera:
         
         else:
             hcamera = mvsdk.CameraInit(dev_info_list[self.device_id])
-        
-        mvsdk.CameraSetIspOutFormat(hcamera,CAMERA_SHOW_TO_TYPE_DICT[self.output_format])
-        mvsdk.CameraSetAeState(hcamera,self.if_auto_exposure)   # enable adjusting exposuretime manually
-        mvsdk.CameraSetTriggerMode(hcamera,self.if_trigger_by_software)   # 0 means continous grab mode; 1 means soft trigger mode
+            
+        if not self.if_use_last_params:
+            mvsdk.CameraSetIspOutFormat(hcamera,CAMERA_SHOW_TO_TYPE_DICT[self.output_format])
+            mvsdk.CameraSetAeState(hcamera,self.if_auto_exposure)   # enable adjusting exposuretime manually
+            mvsdk.CameraSetTriggerMode(hcamera,self.if_trigger_by_software)   # 0 means continous grab mode; 1 means soft trigger mode
+            
         lr1.info(f'CAMERA : CAMERA id {self.device_id} init success')
         
         return hcamera
+            
             
     def _update_camera_isp_params(self):
         
@@ -310,6 +319,7 @@ class Mindvision_Camera:
         self.isp_params.r_gain,self.isp_params.g_gain,self.isp_params.b_gain = gain
         
         self.isp_params.analog_gain = mvsdk.CameraGetAnalogGain(self.hcamera)
+        self.isp_params.analog_gain_x = mvsdk.CameraGetAnalogGainX(self.hcamera)
         self.isp_params.sharpness = mvsdk.CameraGetSharpness(self.hcamera)
         self.isp_params.saturation = mvsdk.CameraGetSaturation(self.hcamera)
         self.isp_params.contrast = mvsdk.CameraGetContrast(self.hcamera)
@@ -352,7 +362,7 @@ class Mindvision_Camera:
 
     def _isp_config_by_isp_params(self):
         
-            
+        
         mvsdk.CameraSetExposureTime(self.hcamera,self.isp_params.exposure_time_us)
         
         mvsdk.CameraSetGamma(self.hcamera,self.isp_params.gamma)
@@ -361,12 +371,17 @@ class Mindvision_Camera:
         
         mvsdk.CameraSetAnalogGain(self.hcamera,self.isp_params.analog_gain)
         
+        mvsdk.CameraSetAnalogGainX(self.hcamera,self.isp_params.analog_gain_x)
+        
         mvsdk.CameraSetSharpness(self.hcamera,self.isp_params.sharpness)
         
         mvsdk.CameraSetSaturation(self.hcamera,self.isp_params.saturation)
 
         mvsdk.CameraSetContrast(self.hcamera,self.isp_params.contrast)
 
+        mvsdk.CameraSetFrameSpeed(self.hcamera,self.isp_params.fps)
+        
+        
 
     
         
@@ -387,9 +402,11 @@ class Mindvision_Camera:
         
         """must be called 
         """
+        
         mvsdk.CameraUnInit(self.hcamera)
         mvsdk.CameraAlignFree(self.pframebuffer_address)
         lr1.info(f"CAMERA : camera id {self.device_id} , nickname {self.device_nickname} closed")
+    
     
     def _errorhandler(self,exc_value):
         print(exc_value)

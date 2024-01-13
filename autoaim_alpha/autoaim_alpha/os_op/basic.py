@@ -3,7 +3,7 @@ import sys
 sys.path.append('..')
 from typing import Any, Union,Optional
 from .global_logger import *
-
+from ..utils_network import data
 
 def CLAMP(x,scope:list,if_should_be_in_scope:bool = False):
     """Both use for check value in scope or set value in scope
@@ -100,3 +100,58 @@ class Custome_Context:
         lr1.info(f"OS_OP : Exit context {self.context_name} Success")
     
 
+class Custom_Context_Obj:
+    def __init__(self) -> None:
+        pass
+    
+    def _start(self):
+        raise TypeError("_start method should be override")
+    
+    def _end(self):
+        raise TypeError("_end method should be override")
+
+    def _errorhandler(self):
+        raise TypeError("_errorhandler method should be override")
+        
+        
+
+class Params:
+    def __init__(self) -> None:
+        pass
+    
+                
+    def __len__(self):
+        return len(vars(self))
+
+
+    
+    def print_show_all(self):
+        for key, value in vars(self).items():
+            print(f"{key} : {value}")
+    
+    def load_params_from_yaml(self,yaml_path:str):
+        
+        reflect_dict =vars(self)
+        setted_list = []
+        info = data.Data.get_file_info_from_yaml(yaml_path)
+        
+        if len(info) != len(reflect_dict) :
+            lr1.error(f"OS_OP : {yaml_path} has wrong params length {len(info)} , expected {len(reflect_dict)}")
+            
+        for i,item in enumerate(info.items()):
+            key,value = item
+            if key not in reflect_dict:
+                lr1.error(f"OS_OP : params {key} : {value} from {yaml_path} failed, no such key")
+            elif key in setted_list:
+                lr1.error(f"OS_OP : params {key} dulplicated")
+            else:
+                reflect_dict[key] = value
+                
+            setted_list.append(key)  
+            
+            
+    def save_params_to_yaml(self,yaml_path:str,mode = 'w'):
+        
+        reflect_dict = vars(self)
+        data.Data.save_dict_info_to_yaml(reflect_dict,yaml_path,open_mode=mode)
+        
