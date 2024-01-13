@@ -57,7 +57,7 @@ class Mindvision_Camera(Custom_Context_Obj):
                  if_auto_exposure:bool = False,
                  if_trigger_by_software:bool = False,
                  camera_run_platform:str = 'linux',
-                 if_use_last_params:bool = True,
+                 if_use_default_params:bool = False,
                  pingpong_exposure:Union[None,list] = None,
                  camera_mode:str = 'Dbg''Rel'
                  ) -> None:
@@ -76,7 +76,7 @@ class Mindvision_Camera(Custom_Context_Obj):
         self.if_trigger_by_software = if_trigger_by_software if pingpong_exposure is None else True
         self.if_auto_exposure = if_auto_exposure
         self.pingpong_exposure = pingpong_exposure
-        self.if_use_last_params = if_use_last_params
+        self.if_use_default_params = if_use_default_params
         self.camera_mode = camera_mode
         self.roi_resolution_xy = CAMERA_ROI_RESOLUTION_XY_DEFAULT
         self.camera_run_platform = camera_run_platform
@@ -85,7 +85,7 @@ class Mindvision_Camera(Custom_Context_Obj):
         
         self.hcamera = self._init()
         
-        if not self.if_use_last_params:
+        if not self.if_use_default_params:
             self._isp_config_by_isp_params()
             self.change_roi(self.roi_resolution_xy[0],self.roi_resolution_xy[1])    
             
@@ -300,7 +300,7 @@ class Mindvision_Camera(Custom_Context_Obj):
         else:
             hcamera = mvsdk.CameraInit(dev_info_list[self.device_id])
             
-        if not self.if_use_last_params:
+        if not self.if_use_default_params:
             mvsdk.CameraSetIspOutFormat(hcamera,CAMERA_SHOW_TO_TYPE_DICT[self.output_format])
             mvsdk.CameraSetAeState(hcamera,self.if_auto_exposure)   # enable adjusting exposuretime manually
             mvsdk.CameraSetTriggerMode(hcamera,self.if_trigger_by_software)   # 0 means continous grab mode; 1 means soft trigger mode
@@ -352,6 +352,7 @@ class Mindvision_Camera(Custom_Context_Obj):
         reflect_dict = vars(self.isp_params)
         for key in reflect_dict.keys():
             cv2.setTrackbarPos(key,self.isp_window_name,reflect_dict[key])
+    
     
     def _update_camera_isp_params_from_trackbar(self):
         

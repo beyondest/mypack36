@@ -4,15 +4,17 @@ from autoaim_alpha.img import img_operation as imo
 
 if __name__ == "__main__":
     
-    ca = Mindvision_Camera(output_format='RGB8',
+    ca = Mindvision_Camera(output_format='BGR8',
                            if_auto_exposure=False,
                            if_trigger_by_software=False,
-                           if_use_last_params=False,
+                           if_use_default_params=False,
                            pingpong_exposure=None,
                            camera_mode='Dbg')
     
     fps = 0
-    
+    ca.save_custom_params_to_yaml('./isp.yaml')
+    ca.save_all_params_to_file('./all')
+    ca.print_show_params()
 
     with Custome_Context('camera',ca):
         
@@ -22,7 +24,6 @@ if __name__ == "__main__":
             
             img_ori= ca.get_img()
             
-            img_ori = cv2.cvtColor(img_ori,cv2.COLOR_RGB2BGR)
             imo.add_text(img_ori,'FPS',fps,scale_size=1)
             cv2.imshow('ori',img_ori)
             print(fps)
