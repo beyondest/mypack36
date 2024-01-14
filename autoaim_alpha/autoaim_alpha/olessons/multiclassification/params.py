@@ -1,11 +1,9 @@
 import numpy as np
 import torch
-import sklearn.datasets as skd
 import sys
 sys.path.append('../../utils_network/')
 from utils_network.data import *
 from utils_network.mymodel import *
-import pandas as pd
 from torchvision import transforms,datasets
 from img.img_operation import *
 
@@ -68,6 +66,7 @@ train_trans = transforms.Compose([
     PIL_img_transform(cv_trans_train,'gray'),
     transforms.ToTensor()
 ])
+
 
 val_trans = transforms.Compose([
     transforms.ToTensor(),

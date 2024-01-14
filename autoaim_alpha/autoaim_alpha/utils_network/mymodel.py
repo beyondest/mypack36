@@ -1,7 +1,7 @@
 import torch
-
+import torch.nn
 from typing import Union
-
+from .bottle_neck import *
 
 def _make_divisible(ch, divisor=8, min_ch=None):
     """
@@ -198,7 +198,7 @@ class mobilenet_v2(torch.nn.Module):
             output_channel = _make_divisible(c*self.alpha,self.factor)
             for i in range(n):
                 stride = s if i ==0 else 1
-                inverted_residual.append(self.bottlenet(input_channel,output_channel,t,stride))
+                inverted_residual.append(Mobilenet_V2_bottle_neck(input_channel,output_channel,t,stride))
                 input_channel = output_channel
         self.inverted_residual = torch.nn.Sequential(*inverted_residual)
         
@@ -224,63 +224,62 @@ class mobilenet_v2(torch.nn.Module):
                       
     
     
-    class bottlenet(torch.nn.Module):
-        def __init__(self,in_channels:int,out_channels:int,expand_factor:float,stride:int = 1) -> None:
-            super().__init__()
             
-            hidden_dim = in_channels * expand_factor
-            
-            #expand to higher dimensions
-            self.conv1 = torch.nn.Conv2d(in_channels,
-                                         hidden_dim,
-                                         kernel_size=1,
-                                         bias=False)  
-            self.bn1 = torch.nn.BatchNorm2d(hidden_dim)
-            self.relu1 = torch.nn.ReLU6(inplace=True)           #inplace = True means will not generate a new tensor but just rectifiy in ori_tensor
-                                                                #space-accuracy trade-off
-                                                                
-            #depthwise convolution
-            self.conv2 = torch.nn.Conv2d(hidden_dim,
-                                         hidden_dim,
-                                         kernel_size=3,
-                                         stride=stride,
-                                         padding=1,             # padding is 1 to make sure that output has same shape in this situation
-                                         groups=hidden_dim,     # groups is input to make sure that this is a depthwise convolution
-                                         bias=False)        
-            self.bn2 = torch.nn.BatchNorm2d(hidden_dim)
-            self.relu2 = torch.nn.ReLU6()
-            
-            #project to lower dimensions(pointwise convolution)
-            self.conv3 = torch.nn.Conv2d(hidden_dim,
-                                         out_channels,
-                                         kernel_size=1,
-                                         bias=False)
-            self.bn3 = torch.nn.BatchNorm2d(out_channels)
-            
-            #judge if change shape for shortcut is needed
-            if stride != 1 or in_channels!= out_channels:
-                self.shortcut = torch.nn.Sequential(
-                    torch.nn.Conv2d(in_channels,
-                                    out_channels,
-                                    kernel_size=1,
-                                    stride=stride,
-                                    bias=False),
-                    torch.nn.BatchNorm2d(out_channels)
-                )
-            else:
-                self.shortcut = torch.nn.Sequential()
-                
-        def forward(self,x):
-            shortcut = self.shortcut(x)
-            x = self.relu1(self.bn1(self.conv1(x)))
-            x = self.relu2(self.bn2(self.conv2(x)))
-            x = self.bn3(self.conv3(x))
-            
-            return shortcut+x
-    
-        
-            
-            
+
+
+class QNet(torch.nn.Module):
+    '''
+        Designed by QPC, aimed at a binary (32*32) input, and 2 classes classification.
+        This is extraodinarily small so that it's necessary to design a special net.
+    '''
+
+    def __init__(self, num_classes=2):
+        super().__init__()
+        self.inblock = torch.nn.Sequential(
+            torch.nn.Conv2d(in_channels=1, out_channels=16, kernel_size=3, stride=1, padding=1, bias=False),
+            torch.nn.BatchNorm2d(16),
+            torch.nn.ReLU()
+        )
+        self.block1 = QBasicBlock(in_channels=16, out_channels=16, expansion=4)
+        self.down_sample1 = torch.nn.Sequential(
+            torch.nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, padding=1, stride=2, bias=False),
+            torch.nn.BatchNorm2d(32),
+            torch.nn.ReLU()
+        )
+        self.block2 = QBasicBlock(in_channels=32, out_channels=32, expansion=4)
+        self.down_sample2 = torch.nn.Sequential(
+            torch.nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, padding=1, stride=2, bias=False),
+            torch.nn.BatchNorm2d(64),
+            torch.nn.ReLU()
+        )
+        self.down_sample3 = torch.nn.Sequential(
+            torch.nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, padding=1, stride=4, bias=False),
+            torch.nn.BatchNorm2d(128),
+            torch.nn.ReLU()
+        )
+        self.down_sample4 = torch.nn.Sequential(
+            torch.nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3, padding=1, stride=2, bias=False),
+            torch.nn.BatchNorm2d(128),
+            torch.nn.ReLU()
+        )
+
+        self.outblock = torch.nn.Sequential(
+            torch.nn.Dropout(0.2),
+            torch.nn.Linear(128, num_classes)
+        )
+
+    def forward(self, x):
+        x = self.inblock(x)
+        x = self.block1(x)
+        x = self.down_sample1(x)
+        x = self.block2(x)
+        x = self.down_sample2(x)
+        x = self.down_sample3(x)
+        x = self.down_sample4(x)
+        x = x.view(-1, 128)
+        x = self.outblock(x)
+        return x
+
              
         
     

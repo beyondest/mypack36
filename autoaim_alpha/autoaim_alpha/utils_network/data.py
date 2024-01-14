@@ -25,6 +25,8 @@ import PIL as pil
 from typing import Union,Optional
 import onnxruntime
 import h5py
+from ..img.tools import normalize
+
 def tp(*args):
     for i in args:
         print(type(i))
@@ -557,6 +559,7 @@ class PIL_img_transform:
             cv_custom_transform: 
             input MUST be BGR image;\n
             output controled by custom_transform MUST fit net input;
+            input_channel_type : depends on what PIL will read in
             
         """
         self.cv_custom_transfomr = cv_custom_transform
@@ -567,12 +570,23 @@ class PIL_img_transform:
         if self.cv_custom_transfomr is None:
             raise TypeError('custom trans form cannot be None')
         
+        nparray = np.array(ori_X)
+        
         if self.total_input_channel_type == 'rgb':
-            cv_img = cv2.cvtColor(np.array(ori_X),cv2.COLOR_RGB2BGR)
+            try:
+                cv_img = cv2.cvtColor(nparray,cv2.COLOR_RGB2BGR)
+            except:
+                raise TypeError('input img is not rgb form, shape is',nparray.shape)
         elif self.total_input_channel_type == 'gray':
-            cv_img = cv2.cvtColor(np.array(ori_X),cv2.COLOR_GRAY2BGR)
+            try:
+                cv_img = cv2.cvtColor(nparray,cv2.COLOR_GRAY2BGR)
+            except:
+                raise TypeError('input img is not gray form, shape is',nparray.shape)
+            
         elif self.total_input_channel_type == 'bgr':
-            cv_img = np.array(ori_X)
+            if len(nparray.shape) <3:
+                raise TypeError('input img not match bgr form, shape is',nparray.shape)
+            cv_img = nparray
         
         else:
             raise TypeError(f"Wrong input channel type {self.total_input_channel_type}, support rgb,gray,bgr")
@@ -599,6 +613,25 @@ class PIL_img_transform:
     
 
 
+
+def nomalize_for_onnx(img_or_imglist:Union[np.ndarray,list],
+                      dtype:type = np.float16)->Union[np.ndarray,None]:
+    if img_or_imglist is None:
+        return None
+    if isinstance(img_or_imglist,list):
+        
+        inp = np.asanyarray(img_or_imglist)
+        if len(inp.shape) == 3:
+            inp = np.expand_dims(inp,axis=1)
+            
+    else:
+        inp = np.expand_dims(img_or_imglist,axis=0)
+        inp = np.expand_dims(inp,axis=0)
+    
+    
+    
+    return normalize(inp).astype(dtype=dtype)
+    
 
 
         

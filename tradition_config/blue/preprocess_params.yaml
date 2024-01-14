@@ -1,7 +1,7 @@
-blue_armor_binary_roi_threshold: 90
+blue_armor_binary_roi_threshold: 4
 blue_armor_yuv_range:
-- 140
-- 222
+- 145
+- 255
 close_kernel_size:
 - 2
 - 2

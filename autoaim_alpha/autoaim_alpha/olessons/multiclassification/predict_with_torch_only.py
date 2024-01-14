@@ -1,11 +1,9 @@
 import numpy as np
 import torch
-import sklearn.datasets as skd
 import sys
 sys.path.append('../..')
 from utils_network.data import *
 from utils_network.mymodel import *
-import pandas as pd
 import cv2
 import torch
 from torchvision import transforms

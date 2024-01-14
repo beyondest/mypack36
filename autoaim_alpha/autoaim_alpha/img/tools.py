@@ -312,4 +312,17 @@ def expand_rec_wid(rec_cont_list:Union[list,None],expand_rate:float=1.5,img_size
             
     return out_list     
         
-   
+
+def cvshow(img:np.ndarray,windows_name:str='show'):
+    '''
+    use to show quickly
+    '''
+    cv2.imshow(windows_name,img)
+    while True:
+        if (cv2.waitKey(0) & 0xff )== 27:
+            break
+    cv2.destroyAllWindows()
+    
+def normalize(ori_img:np.ndarray,scope:tuple=(0,1))->np.ndarray:
+    '''(y-a)/(b-a)=(x-xmin)/(xmax-xmin)'''
+    return (ori_img-ori_img.min())/(ori_img.max()-ori_img.min())*(scope[1]-scope[0])+scope[0]

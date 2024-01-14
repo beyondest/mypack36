@@ -1,5 +1,5 @@
-from autoaim_alpha.camera.mv_class import *
-from autoaim_alpha.img import img_operation as imo
+from autoaim_alpha.autoaim_alpha.camera.mv_class import *
+from autoaim_alpha.autoaim_alpha.img import img_operation as imo
 
 
 if __name__ == "__main__":

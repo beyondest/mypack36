@@ -1,25 +1,32 @@
-from autoaim_alpha.camera.mv_class import *
-from autoaim_alpha.img import img_operation as imo
-from autoaim_alpha.img import detector
-
+from autoaim_alpha.autoaim_alpha.camera.mv_class import *
+from autoaim_alpha.autoaim_alpha.img import detector
+from autoaim_alpha.autoaim_alpha.img.tools import add_text
+armor_color = 'red'
+tradition_config_path = './tradition_config'
+mode = 'Dbg'
 if __name__ == "__main__":
     
     ca = Mindvision_Camera(output_format='BGR8',
                            if_auto_exposure=False,
                            if_trigger_by_software=False,
-                           if_use_default_params=False,
+                           if_use_last_params=False,
                            pingpong_exposure=None,
-                           camera_mode='Dbg')
+                           camera_mode=mode,
+                           tradition_config_folder_path=tradition_config_path,
+                           armor_color=armor_color)
     
     fps = 0
-    #ca.save_custom_params_to_yaml('./isp.yaml')
-    #ca.save_all_params_to_file('./all')
-    ca.load_params_from_yaml('./tradition_config/blue/custom_isp_params.yaml')
+    
+    
     ca.print_show_params()
     ca.enable_trackbar_config(press_key_to_save='a')
     
     
-    tradition_detector = detector.Traditional_Detector('blue','Dbg',True)
+    tradition_detector = detector.Traditional_Detector(armor_color,
+                                                       mode,
+                                                       True,
+                                                       tradition_config_path,
+                                                       roi_single_shape=(32,32))
     
     tradition_detector.enable_preprocess_config(press_key_to_save='s')
     tradition_detector.filter1.enable_trackbar_config(press_key_to_save='d')
@@ -38,7 +45,7 @@ if __name__ == "__main__":
                                             img_ori
                                           )
             
-            imo.add_text(img_ori,'FPS',fps,scale_size=1)
+            add_text(img_ori,'FPS',fps,scale_size=1)
             cv2.imshow('ori',img_ori)
             print(fps)
             

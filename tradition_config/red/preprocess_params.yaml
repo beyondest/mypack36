@@ -9,8 +9,8 @@ gaussianblur_kernel_size:
 - 3
 - 3
 gaussianblur_x: 1
-red_armor_binary_roi_threshold: 127
+red_armor_binary_roi_threshold: 3
 red_armor_yuv_range:
-- 152
+- 164
 - 255
 strech_max: null

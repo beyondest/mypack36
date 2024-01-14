@@ -1,0 +1,18 @@
+Most affective params to ROI Binary :
+
+    modifiable :
+
+        threshold
+        gamma
+        exposure_time_us
+        analog_gain/analog_gain_x
+        contrast
+
+    unmodifiable:
+
+        distance
+        light
+        
+        
+
+

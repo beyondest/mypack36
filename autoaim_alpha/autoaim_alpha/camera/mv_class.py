@@ -57,16 +57,21 @@ class Mindvision_Camera(Custom_Context_Obj):
                  if_auto_exposure:bool = False,
                  if_trigger_by_software:bool = False,
                  camera_run_platform:str = 'linux',
-                 if_use_default_params:bool = False,
+                 if_use_last_params:bool = False,
                  pingpong_exposure:Union[None,list] = None,
-                 camera_mode:str = 'Dbg''Rel'
+                 camera_mode:str = 'Dbg''Rel',
+                 tradition_config_folder_path:Union[str,None] = None,
+                 armor_color:str = 'red'
                  ) -> None:
         
-        if camera_run_platform != 'linux' and camera_run_platform != 'windows':
-            lr1.error(f'CAMERA : camera_run_platform {camera_run_platform} wrong, must be windows or linux')
-        if camera_mode != 'Dbg' and camera_mode != 'Rel':
-            lr1.error(f"CAMERA : camera mode {camera_mode} wrong, must be Dbg or Rel")
-            
+        CHECK_INPUT_VALID(camera_run_platform,'linux','windows')
+        CHECK_INPUT_VALID(camera_mode,'Dbg','Rel')
+        if tradition_config_folder_path is not None:
+            CHECK_INPUT_VALID(os.path.exists(tradition_config_folder_path),True)
+            CHECK_INPUT_VALID(os.listdir(tradition_config_folder_path),['red','blue'])
+        CHECK_INPUT_VALID(armor_color,'red','blue')
+        
+        
         self.isp_params = Isp_Params()
 
         self.device_id = device_id
@@ -76,19 +81,30 @@ class Mindvision_Camera(Custom_Context_Obj):
         self.if_trigger_by_software = if_trigger_by_software if pingpong_exposure is None else True
         self.if_auto_exposure = if_auto_exposure
         self.pingpong_exposure = pingpong_exposure
-        self.if_use_default_params = if_use_default_params
+        self.if_use_last_params = if_use_last_params
         self.camera_mode = camera_mode
         self.roi_resolution_xy = CAMERA_ROI_RESOLUTION_XY_DEFAULT
         self.camera_run_platform = camera_run_platform
         self.pingpong_count = 0
-        
+        self.armor_color = armor_color
         
         self.hcamera = self._init()
         
-        if not self.if_use_default_params:
+        if not self.if_use_last_params:
+            if tradition_config_folder_path is not None:
+                root_dir = os.path.join(tradition_config_folder_path,armor_color)
+                isp_path= os.path.join(root_dir,'custom_isp_params.yaml')
+                self.load_params_from_yaml(isp_path)
+                lr1.info(f'CAMERA : Load params success from {isp_path}')
+                
+            else:
+                lr1.warning(f'CAMERA : Will not use yaml params nor last params, but use default params')
+                
             self._isp_config_by_isp_params()
-            self.change_roi(self.roi_resolution_xy[0],self.roi_resolution_xy[1])    
-            
+            self.change_roi(self.roi_resolution_xy[0],self.roi_resolution_xy[1])   
+        else:
+            lr1.info(f'CAMERA : Use Last params')
+        
         self._update_camera_isp_params()
         
        
@@ -300,7 +316,7 @@ class Mindvision_Camera(Custom_Context_Obj):
         else:
             hcamera = mvsdk.CameraInit(dev_info_list[self.device_id])
             
-        if not self.if_use_default_params:
+        if not self.if_use_last_params:
             mvsdk.CameraSetIspOutFormat(hcamera,CAMERA_SHOW_TO_TYPE_DICT[self.output_format])
             mvsdk.CameraSetAeState(hcamera,self.if_auto_exposure)   # enable adjusting exposuretime manually
             mvsdk.CameraSetTriggerMode(hcamera,self.if_trigger_by_software)   # 0 means continous grab mode; 1 means soft trigger mode

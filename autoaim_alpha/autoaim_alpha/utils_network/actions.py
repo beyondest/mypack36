@@ -1,19 +1,16 @@
 import torch
-import sys
-sys.path.append('..')
-import os_op.os_operation as oso
 import os
 import time
-
 from torchvision import transforms,datasets
 import cv2
-from utils_network.data import *
-import onnx
 import onnxruntime
-from os_op.decorator import *
-from pathlib import Path
 from typing import Union,Optional
+import torch.nn
+import torch.cuda
 
+from ..img.tools import cvshow,add_text
+from ..os_op.decorator import *
+from .data import *
 
 def train_classification(   model:torch.nn.Module,
                             train_dataloader,
@@ -149,7 +146,7 @@ def predict_classification(model:torch.nn.Module,
                            class_yaml_path:str,
                            fmt:str = 'jpg',
                            custom_trans_cv:None = None,
-                           if_show: bool = False,
+                           if_show_after_cvtrans: bool = False,
                            if_draw_and_show_result:bool = False,
                            if_print:bool = True
                            ):
@@ -181,8 +178,8 @@ def predict_classification(model:torch.nn.Module,
         else:
             img = img_ori   
             
-        if if_show:
-            imo.cvshow(img,f'{img_or_folder_path}')
+        if if_show_after_cvtrans:
+            cvshow(img,f'{img_or_folder_path}')
         input_tensor = trans(img).unsqueeze(0).to(device)
 
         
@@ -199,8 +196,8 @@ def predict_classification(model:torch.nn.Module,
                 print(f'{img_or_folder_path} is {predict_class}, with probablity {probablility:.2f}    spend_time: {t:6f}')
 
         if if_draw_and_show_result:
-            imo.add_text(img_ori,f'class:{predict_class} | probability: {probablility}',0,color=(0,255,0))
-            imo.cvshow(img_ori,'result')
+            add_text(img_ori,f'class:{predict_class} | probability: {probablility:.2f}',0,color=(0,255,0))
+            cvshow(img_ori,'result')
             
     if mode == 'single_img':
         single_predic(img_or_folder_path)
@@ -254,7 +251,7 @@ def validation(model:torch.nn.Module,
             
     
     
-def trans_logits_in_batch_to_result(logits_in_batch:Union[torch.Tensor,np.ndarray])->list:
+def trans_logits_in_batch_to_result(logits_in_batch:Union[torch.Tensor,np.ndarray])->tuple:
     """Trans logits of model output to [probabilities, indices]
 
     Args:
@@ -264,19 +261,26 @@ def trans_logits_in_batch_to_result(logits_in_batch:Union[torch.Tensor,np.ndarra
         TypeError: not Tensor neither ndarray
 
     Returns:
-        list: [probabilities:torch.Tensor, indices:torch.Tensor]
+        [probability_of_sample_0,probability_of_sample_1,...],[max_index_of_sample_0,max_index_of_sample_1,...]
     """
     if isinstance(logits_in_batch,np.ndarray):
-        logits_in_batch = torch.from_numpy(logits_in_batch)
+        
+        max_prob_index = np.argmax(logits_in_batch, axis=-1)
+
+        exp_logits = np.exp(logits_in_batch - np.max(logits_in_batch, axis=-1,keepdims=True))
+        probabilities = exp_logits / np.sum(exp_logits, axis=-1,keepdims=True)
+        max_probabilities = np.max(probabilities,axis=-1)
+        return list(max_probabilities), list(max_prob_index)
+
     elif isinstance(logits_in_batch,torch.Tensor):
-        pass
+        max_result = torch.max(torch.softmax(logits_in_batch,dim=1),dim=1)
+        max_probabilities = max_result.values
+        max_indices = max_result.indices
+    
+        return max_probabilities.tolist(),max_indices.tolist()
+
     else:
         raise TypeError(f'Wrong input type {type(logits_in_batch)}, only support torch tensor and numpy')
-    max_result = torch.max(torch.softmax(logits_in_batch,dim=1),dim=1)
-    max_probabilities = max_result.values
-    max_indices = max_result.indices
-    
-    return max_probabilities,max_indices
 
 
 
@@ -299,6 +303,9 @@ class Onnx_Engine:
         Args:
             filename (_type_): _description_
         """
+        if os.path.splitext(filename)[-1] !='.onnx':
+            raise TypeError(f"onnx file load failed, path not end with onnx :{filename}")
+
         custom_session_options = onnxruntime.SessionOptions()
         
         if if_offline:
@@ -327,7 +334,8 @@ class Onnx_Engine:
     
     @timing(1)            
     def run(self,output_nodes_name_list:Union[list,None],input_nodes_name_to_npvalue:dict)->list:
-        """Notice that input value must be numpy value
+        """@timing\n
+        Notice that input value must be numpy value
         Args:
             output_nodes_name_list (list | None): _description_
             input_nodes_name_to_npvalue (dict): _description_
