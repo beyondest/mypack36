@@ -2,7 +2,7 @@ import cv2
 import time
 import numpy as np
 from typing import Union,Optional
-
+import math
 
 def order_rec_points(rec_points:np.ndarray)->np.ndarray:
         '''
@@ -183,4 +183,133 @@ def add_text(img_bgr:np.ndarray,
     thickness=round(3/(1024*1280)*(img_size_yx[0]*img_size_yx[1]))
     dst=cv2.putText(img_bgr,f'{name}:{value}',pos,font,scale_size,color,thickness)
     return dst
-  
+
+
+def walk_until_dis(begin_x:int,
+                   begin_y:int,
+                   slope:float,
+                   distance:float,
+                   direction:str='right',
+                   img_size_yx:tuple=(1024,1280)
+                   
+                    )->list:
+    '''direction =right for x+=1, or left for x-=1,
+    return x,y'''      
+    x=begin_x
+    y=begin_y
+    x_range=(0,img_size_yx[1])
+    y_range=(0,img_size_yx[0])
+    if math.isinf(slope) or math.isnan(slope):
+        print('slope out')
+        return [x,y]
+    theta=math.atan(abs(slope))
+    delta_x=distance*math.cos(theta)
+    
+    delta_y=distance*math.sin(theta)
+    if direction=='right':
+        
+        x+=delta_x
+        y=y+delta_y if slope>0 else y-delta_y
+        #check range 
+        if x>x_range[1]:
+            x=x_range[1]
+        if y>y_range[1]:
+            y=y_range[1]
+        if y<y_range[0]:
+            y=y_range[0]
+        return [x,round(y)]
+    if direction=='left':
+        x-=delta_x
+        y=y+delta_y if slope<0 else y-delta_y
+        #check range
+        if x<x_range[0]:
+            x=x_range[0]
+        if y>y_range[1]:
+            y=y_range[1]
+        if y<y_range[0]:
+            y=y_range[0]
+        return [x,round(y)]
+
+def make_big_rec(cont1:np.ndarray,
+                 cont2:np.ndarray
+                 )->tuple:
+    '''
+    vstack two conts into one cont and then getrec_info\n
+    return tuple:  (center_x,center_y,wid,hei,rec_points,rec_area)
+    
+    '''
+    big_cont=np.vstack((cont1,cont2))
+    return getrec_info(big_cont)[4]
+
+def expand_rec_wid(rec_cont_list:Union[list,None],expand_rate:float=1.5,img_size_yx:tuple=(1024,1280))->Union[list,None]:
+    '''
+    only expand short side
+    return a list of expanded rec_conts
+    '''
+    if rec_cont_list is None:
+        return None
+    out_list=[]
+    dis=0
+    for i in rec_cont_list:
+        center_x,center_y,wid,hei,rec_points,_=getrec_info(i)
+        out_points=[[],[],[],[]]
+        x1,y1=rec_points[0]
+        x2,y2=rec_points[1]
+        x3,y3=rec_points[2]
+        x4,y4=rec_points[3]
+        hei=((x1-x2)**2+(y1-y2)**2)**0.5
+        wid=((x2-x3)**2+(y2-y3)**2)**0.5
+        if wid<hei:
+            #always make side12 is short one
+            wid,hei=hei,wid
+            x1,x2,x3,x4=x2,x3,x4,x1
+            y1,y2,y3,y4=y2,y3,y4,y1
+            dis=hei*(expand_rate-1)/2
+            #all is expanding in slope 12, the short side slope
+            slope12=(y1-y2)/(x1-x2)
+            #check if vertical
+            if slope12==0 or math.isinf(slope12) or math.isnan(slope12):
+                out_points[1]=[x1,y1-dis]
+                out_points[2]=[x2,y2+dis]
+                out_points[3]=[x3,y3+dis]
+                out_points[0]=[x4,y4-dis]
+                
+            else:
+                #1 and 4 is same, 1 and 2 is opposite
+                
+                        
+                direc1='left' if slope12>0 else 'right'
+                direc2='right' if slope12>0 else 'left'
+                #make 1 is left down point
+                out_points[1]=walk_until_dis(x1,y1,slope12,dis,direc1,img_size_yx=img_size_yx)
+                out_points[2]=walk_until_dis(x2,y2,slope12,dis,direc2,img_size_yx=img_size_yx)
+                out_points[3]=walk_until_dis(x3,y3,slope12,dis,direc2,img_size_yx=img_size_yx)
+                out_points[0]=walk_until_dis(x4,y4,slope12,dis,direc1,img_size_yx=img_size_yx)
+            out_list.append(np.array(out_points,dtype=np.int64))
+        else:
+            #always make side12 is short one
+ 
+            dis=hei*(expand_rate-1)/2
+            #all is expanding in slope 12, the short side slope
+            
+            slope12=(y1-y2)/(x1-x2)
+            #check if vertical
+            if slope12==0 or math.isnan(slope12) or math.isinf(slope12):
+                out_points[0]=[x1,y1+dis]
+                out_points[1]=[x2,y2-dis]
+                out_points[2]=[x3,y3-dis]
+                out_points[3]=[x4,y4+dis]
+            else:
+                #1 and 4 is same, 1 and 2 is opposite
+                direc1='right' if slope12>0 else 'left'
+                direc2='left' if slope12>0 else 'right'
+                #make 1 is left down point
+                out_points[0]=walk_until_dis(x1,y1,slope12,dis,direc1,img_size_yx=img_size_yx)
+                out_points[1]=walk_until_dis(x2,y2,slope12,dis,direc2,img_size_yx=img_size_yx)
+                out_points[2]=walk_until_dis(x3,y3,slope12,dis,direc2,img_size_yx=img_size_yx)
+                out_points[3]=walk_until_dis(x4,y4,slope12,dis,direc1,img_size_yx=img_size_yx)
+            out_list.append(np.array(out_points,dtype=np.int64))
+            
+    return out_list     
+        
+   

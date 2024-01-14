@@ -1,6 +1,6 @@
 from autoaim_alpha.camera.mv_class import *
 from autoaim_alpha.img import img_operation as imo
-from autoaim_alpha.img import test
+from autoaim_alpha.img import detector
 
 if __name__ == "__main__":
     
@@ -19,9 +19,9 @@ if __name__ == "__main__":
     ca.enable_trackbar_config(press_key_to_save='a')
     
     
-    tradition_detector = test.Traditional_Detector('blue','Dbg',True)
+    tradition_detector = detector.Traditional_Detector('blue','Dbg',True)
     
-    tradition_detector.enable_yuv_trackbar_config(press_key_to_save='s')
+    tradition_detector.enable_preprocess_config(press_key_to_save='s')
     tradition_detector.filter1.enable_trackbar_config(press_key_to_save='d')
     tradition_detector.filter2.enable_trackbar_config(press_key_to_save='f')
     

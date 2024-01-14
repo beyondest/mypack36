@@ -1,0 +1,15 @@
+accept_area_range:
+- 1
+- 5000
+accept_aspect_ratio_range:
+- 0.01
+- 1.0
+accept_center_distance_range:
+- 1
+- 1000
+accept_two_area_ratio_range:
+- 0.23
+- 5.61
+accept_two_aspect_ratio_range:
+- 0.28
+- 3.09

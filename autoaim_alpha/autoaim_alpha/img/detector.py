@@ -118,7 +118,7 @@ class Traditional_Detector:
             
         return center_list,roi_binary_list
     
-    def enable_yuv_trackbar_config(self,window_name:str = 'preprocess_config',press_key_to_save:str = 's'):
+    def enable_preprocess_config(self,window_name:str = 'preprocess_config',press_key_to_save:str = 's'):
         self.config_window_name =window_name
         self.press_key_to_save = press_key_to_save
         def for_trackbar(x):
@@ -126,14 +126,17 @@ class Traditional_Detector:
         cv2.namedWindow(window_name,cv2.WINDOW_FREERATIO)
         cv2.createTrackbar('yuv_range_min',window_name,0,255,for_trackbar)
         cv2.createTrackbar('yuv_range_max',window_name,0,255,for_trackbar)
+        cv2.createTrackbar('threshold',window_name,0,255,for_trackbar)
         
         if self.armor_color == 'red':
             cv2.setTrackbarPos('yuv_range_min',window_name,self.preprocess_bgr_params.red_armor_yuv_range[0])
             cv2.setTrackbarPos('yuv_range_max',window_name,self.preprocess_bgr_params.red_armor_yuv_range[1])
-            
+            cv2.setTrackbarPos('threshold',window_name,self.preprocess_bgr_params.red_armor_binary_roi_threshold)
         if self.armor_color == 'blue':
             cv2.setTrackbarPos('yuv_range_min',window_name,self.preprocess_bgr_params.blue_armor_yuv_range[0])
             cv2.setTrackbarPos('yuv_range_max',window_name,self.preprocess_bgr_params.blue_armor_yuv_range[1])
+            cv2.setTrackbarPos('threshold',window_name,self.preprocess_bgr_params.blue_armor_binary_roi_threshold)
+            
     
     def detect_trackbar_config(self):
         
@@ -141,11 +144,13 @@ class Traditional_Detector:
             
             self.preprocess_bgr_params.red_armor_yuv_range[0] = cv2.getTrackbarPos('yuv_range_min',self.config_window_name)
             self.preprocess_bgr_params.red_armor_yuv_range[1] = cv2.getTrackbarPos('yuv_range_max',self.config_window_name)
-        
+            self.preprocess_bgr_params.red_armor_binary_roi_threshold = cv2.getTrackbarPos('threshold',self.config_window_name)
         else:
             
             self.preprocess_bgr_params.blue_armor_yuv_range[0] = cv2.getTrackbarPos('yuv_range_min',self.config_window_name)
             self.preprocess_bgr_params.blue_armor_yuv_range[1] = cv2.getTrackbarPos('yuv_range_max',self.config_window_name)
+            self.preprocess_bgr_params.blue_armor_binary_roi_threshold = cv2.getTrackbarPos('threshold',self.config_window_name)
+            
         
         if cv2.waitKey(1) == ord(self.press_key_to_save):
             self.preprocess_bgr_params.save_params_to_yaml('preprocess_params.yaml')
@@ -175,6 +180,7 @@ class Traditional_Detector:
         
         big_rec_list = [make_big_rec(rec_pair[0],rec_pair[1]) for rec_pair in small_rec_pairs_list]\
                         if small_rec_pairs_list is not None else None 
+        big_rec_list = expand_rec_wid(big_rec_list,EXPAND_RATE,img_size_yx=img_single.shape)
         
         big_rec_list = big_rec_list if not self.if_enable_filter2 \
                                 else self.filter2.get_output(big_rec_list)
@@ -331,9 +337,9 @@ class Filter_of_lightbar:
                 print('Light Bar Area : ',rec_area)
                 if img_bgr is not None:
                     draw_single_cont(img_bgr,each_cont)
-                    add_text(img_bgr,'as',round(aspect,3),(round(x),round(y)),color=(255,255,255),scale_size=0.8)
-                    add_text(img_bgr,'ar',round(rec_area,3),(round(x),round(y+30)),color=(255,255,255),scale_size=0.8)
-                    add_text(img_bgr,'wi',wid,(round(x),round(y+60)),color=(255,255,255),scale_size=0.8)
+                    add_text(img_bgr,'as',round(aspect,2),(round(x),round(y)),color=(255,255,255),scale_size=0.6)
+                    add_text(img_bgr,'ar',round(rec_area,2),(round(x),round(y+30)),color=(255,255,255),scale_size=0.6)
+                    add_text(img_bgr,'wi',round(wid,2),(round(x),round(y+60)),color=(255,255,255),scale_size=0.6)
                 
             
             if  INRANGE(aspect,self.filter_params.accept_aspect_ratio_range) \
