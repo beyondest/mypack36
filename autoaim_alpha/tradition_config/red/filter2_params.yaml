@@ -1,0 +1,6 @@
+accept_area_range:
+- 10
+- 350000
+accept_aspect_ratio_range:
+- 1.0
+- 5.0
