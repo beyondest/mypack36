@@ -73,7 +73,8 @@ class Traditional_Detector:
     def __init__(self,
                  armor_color:str,
                  mode:str,
-                 if_enable_filter2:bool = False
+                 if_enable_filter2:bool = True
+                 
                  ) -> None:
         
         CHECK_INPUT_VALID(mode,'Dbg','Rel')
@@ -88,7 +89,7 @@ class Traditional_Detector:
             cv2.namedWindow('single',cv2.WINDOW_FREERATIO)
             cv2.namedWindow('roi_transform',cv2.WINDOW_FREERATIO)
             cv2.namedWindow('roi_binary',cv2.WINDOW_FREERATIO)
-       
+        
        
     def get_output(self,img_bgr:np.ndarray,img_bgr_exposure2:np.ndarray):
         if img_bgr is None or img_bgr_exposure2 is None:
@@ -150,7 +151,7 @@ class Traditional_Detector:
             self.preprocess_bgr_params.save_params_to_yaml('preprocess_params.yaml')
         
         
-        
+    
     
     
     @timing(1)

@@ -14,9 +14,10 @@ if __name__ == "__main__":
     fps = 0
     #ca.save_custom_params_to_yaml('./isp.yaml')
     #ca.save_all_params_to_file('./all')
-    ca.isp_config(grab_resolution_hei=512,grab_resolution_wid=640)
+    ca.load_params_from_yaml('./tradition_config/blue/custom_isp_params.yaml')
     ca.print_show_params()
     ca.enable_trackbar_config(press_key_to_save='a')
+    
     
     tradition_detector = test.Traditional_Detector('blue','Dbg',True)
     
