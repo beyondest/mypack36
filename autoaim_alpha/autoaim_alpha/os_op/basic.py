@@ -5,6 +5,10 @@ from typing import Any, Union,Optional
 from .global_logger import *
 from ..utils_network import data
 
+import cv2
+
+
+
 def CLAMP(x,scope:list,if_should_be_in_scope:bool = False):
     """Both use for check value in scope or set value in scope
 
@@ -155,3 +159,28 @@ class Params:
         reflect_dict = vars(self)
         data.Data.save_dict_info_to_yaml(reflect_dict,yaml_path,open_mode=mode)
         
+
+        
+        
+        
+def INRANGE(x,scope:list)->bool :
+    if scope[0] > scope[1]:
+        lr1.error(f'OS_OP : scope {scope} [0] should < [1]')
+        scope[1],scope[0] = scope[0], scope[1]
+    if scope[0] <= x <= scope[1]:
+        return True
+    else :
+        return False
+
+def CAL_EUCLIDEAN_DISTANCE(pt1,pt2)->float:
+    
+    return ((pt1[0] - pt2[0]) ** 2 + (pt1[1] - pt2[1]) ** 2) ** 0.5
+
+
+
+def CHECK_INPUT_VALID(input,*available):
+    
+    if input in available:
+        return None
+    else :
+        lr1.error(f"OS_OP : input is not availble, get {input}, expect {available}")

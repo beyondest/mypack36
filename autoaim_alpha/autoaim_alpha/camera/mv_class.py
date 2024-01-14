@@ -16,7 +16,7 @@ from typing import Union,Optional
 
 class Isp_Params(Params):
     def __init__(self) -> None:
-        
+        super().__init__()
         self.exposure_time_us = CAMERA_EXPOSURE_TIME_US_DEFALUT
         self.gamma = CAMERA_GAMMA_DEFAULT
         self.r_gain,self.g_gain, self.b_gain = CAMERA_GAIN_DEFAULT
@@ -80,7 +80,7 @@ class Mindvision_Camera(Custom_Context_Obj):
         self.camera_mode = camera_mode
         self.roi_resolution_xy = CAMERA_ROI_RESOLUTION_XY_DEFAULT
         self.camera_run_platform = camera_run_platform
-        
+        self.pingpong_count = 0
         
         
         self.hcamera = self._init()
@@ -92,13 +92,16 @@ class Mindvision_Camera(Custom_Context_Obj):
         self._update_camera_isp_params()
         
        
+    
             
-            
-    def enable_trackbar_config(self,window_name:str,save_yaml_path:str = './trackbar_params.yaml'):
+    def enable_trackbar_config(self,window_name:str = 'isp_config',press_key_to_save:str = 's',save_yaml_path:str = './custom_isp_params.yaml'):
         
         self.isp_window_name = window_name
+        self.press_key_to_save = press_key_to_save
         self.save_yaml_path = save_yaml_path
         self._visualize_isp_config_by_isp_params()        
+        
+    
     
     def load_params_from_yaml(self,yaml_path:str):
         
@@ -264,11 +267,8 @@ class Mindvision_Camera(Custom_Context_Obj):
         self._update_camera_isp_params_from_trackbar()
         self._isp_config_by_isp_params()
         
-        if cv2.waitKey(1) & 0xff == ord('s'):
-            print(f'Params Save to {self.save_yaml_path}')
-            data = vars(self.isp_params)
-            with open(self.save_yaml_path,'a') as file:
-                yaml.dump(data,file,default_flow_style=False)
+        if cv2.waitKey(1) & 0xff == ord(self.press_key_to_save):
+            self.save_custom_params_to_yaml(self.save_yaml_path)
     
 
     
@@ -346,12 +346,15 @@ class Mindvision_Camera(Custom_Context_Obj):
             
         self._update_camera_isp_params()
         self._set_trackbar_pos_by_present_params()
-                
+       
+       
+             
     def _set_trackbar_pos_by_present_params(self):
         
         reflect_dict = vars(self.isp_params)
         for key in reflect_dict.keys():
-            cv2.setTrackbarPos(key,self.isp_window_name,reflect_dict[key])
+            tmp = round(reflect_dict[key])
+            cv2.setTrackbarPos(key,self.isp_window_name,tmp)
     
     
     def _update_camera_isp_params_from_trackbar(self):
@@ -380,11 +383,9 @@ class Mindvision_Camera(Custom_Context_Obj):
 
         mvsdk.CameraSetContrast(self.hcamera,self.isp_params.contrast)
 
-        mvsdk.CameraSetFrameSpeed(self.hcamera,self.isp_params.fps)
-        
+        #mvsdk.CameraSetFrameSpeed(self.hcamera,self.isp_params.fps)
         
 
-    
         
         
         
@@ -413,8 +414,7 @@ class Mindvision_Camera(Custom_Context_Obj):
         print(exc_value)
         print(type(exc_value))
 
-
-
+ 
         
     
     

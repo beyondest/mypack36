@@ -36,11 +36,11 @@ def target_find(img_ori:np.ndarray,armor_color:str,filter_params:list)->tuple:
     all_time=t1+t2+t3+t4
     return draw_img,roi_single_list,all_time
 
-def find_armor_debug(img_bgr:np.ndarray,
-                     img_bgr_exposure2:np.ndarray,
-                    color = 'red',
-                    if_print_time:bool = True
-                    )->list:
+def find_armor( img_bgr:np.ndarray,
+                img_bgr_exposure2:np.ndarray,
+                color = 'red',
+                if_debug:bool = True
+                )->list:
     """Get center list and roi transform list
 
     Args:
@@ -51,21 +51,32 @@ def find_armor_debug(img_bgr:np.ndarray,
     Returns:
         [center_list, roi_transfomr_list, all_spend_time]
     """
-    img_single,pre_process_time = pre_process_debug(  img_rgb=img_bgr,
+    img_single,pre_process_time = pre_process(          img_bgr=img_bgr,
                                                         armor_color=color)
-    
-    cv2.imshow('single_after_preprocess',img_single)
+    if if_debug:
+        cv2.imshow('single_after_preprocess',img_single)
     big_rec_list ,find_big_rec_time= find_big_rec(img_single,trace=True)
-    draw_big_rec(big_rec_list,img_bgr,True)
+    if if_debug:
+        draw_big_rec(big_rec_list,img_bgr,True)
     center_list = turn_big_rec_list_to_center_points_list(big_rec_list)
-    draw_center_list(center_list,img_bgr)
+    if if_debug:
+        draw_center_list(center_list,img_bgr)
+        
     roi_transform_list,pick_up_roi_transform_time = pick_up_roi_transform(big_rec_list,img_bgr_exposure2)
-    if if_print_time:
+    if if_debug and roi_transform_list is not None and len(roi_transform_list) == 1:
+        cv2.imshow('roi_transform',roi_transform_list[0])
+    
+    roi_single_list , pre_process2_time = pre_process2(roi_transform_list,'red')
+    if if_debug and roi_single_list is not None and len(roi_single_list) == 1:
+        cv2.imshow('roi_single',roi_single_list[0])
+    
+    
+    if if_debug:
         print('pre_process_time',pre_process_time)
         print('find_big_rec_time',find_big_rec_time)
         print('pickup_roi_transfomr_time',pick_up_roi_transform_time)
     
-    return center_list,roi_transform_list,pre_process_time+find_big_rec_time+pick_up_roi_transform_time
+    return center_list,roi_single_list,pre_process_time+find_big_rec_time+pick_up_roi_transform_time+pre_process2_time
 
 ###############################################################
 
@@ -109,41 +120,6 @@ def pre_process(img_yuv:np.ndarray,armor_color:str)->Union[list,None]:
     return dst
 
 
-@timing(1)
-def pre_process_debug(img_bgr:np.ndarray,armor_color:str)->Union[list,None]:
-    '''
-    @timing
-    armor_color = 'red' or 'blue'\n
-    return img_single,time \n
-    Warning:  input img is YUV !!!
-    '''
-    
-    if img_bgr is None:
-        return None
-    img_size_yx=(img_bgr.shape[0],img_bgr.shape[1])
-    dst=cv2.GaussianBlur(img_bgr,(3,3),1)
-    dst = cv2.cvtColor(img_bgr,cv2.COLOR_BGR2YUV)
-    #out of memory error
-    y,u,v=cv2.split(dst)
-    #blue 145-255
-    #red 152-255
-    if armor_color=='blue':
-        dst=cv2.inRange(u.reshape(img_size_yx[0],img_size_yx[1],1),145,255)
-    elif armor_color=='red':
-        dst=cv2.inRange(v.reshape(img_size_yx[0],img_size_yx[1],1),152,255)
-    else:
-        print('armor_color is wrong')
-        sys.exit()
-    #dst=cv2.medianBlur(dst,13)
-    if img_size_yx==(1024,1280):
-        kernel=cv2.getStructuringElement(cv2.MORPH_RECT,(10,10))
-    elif img_size_yx==(256,320):
-        kernel=cv2.getStructuringElement(cv2.MORPH_RECT,(2,2))
-    else:
-        print('imgsize not match, you have to preset preprocess params ')  
-        sys.exit() 
-    dst=cv2.morphologyEx(dst,cv2.MORPH_CLOSE,kernel)
-    return dst
 
 
 
@@ -255,7 +231,6 @@ def find_big_rec(img_single:np.ndarray,trace:bool=True)->list:
         else:
             big_rec_info=make_big_rec(conts[0],conts[1])
             out_list.append(big_rec_info[4])
-        
 
         out_list=expand_rec_wid(out_list,expand_rate=2,img_size_yx=img_size_yx) 
     
@@ -272,7 +247,7 @@ def find_big_rec(img_single:np.ndarray,trace:bool=True)->list:
             conts=filter_strange(conts,ratio=10)
             if trace:
                 print('after filter_strange:',len(conts))
-            conts_tuple_list=filter_no_shapelike(conts,(0.5,1.5),(0.5,1.5))
+            conts_tuple_list=filter_no_shapelike(conts,(0.2,1.8),(0.2,1.8))
             if trace:
                 print('after filter_no_shapelike:',len(conts_tuple_list))
             for i in conts_tuple_list:
@@ -287,6 +262,7 @@ def find_big_rec(img_single:np.ndarray,trace:bool=True)->list:
                         out_list.append(big_rec_info[4])
             if trace:
                 print('final bigrec(after centernear):',len(out_list))
+                
         else:
             big_rec_info=make_big_rec(conts[0],conts[1])
             out_list.append(big_rec_info[4])
@@ -317,12 +293,12 @@ def draw_big_rec(big_rec_list,img_bgr:np.ndarray,if_draw_on_input:bool = True)->
 def draw_center_list(center_list:list,img_bgr:np.ndarray, if_draw_on_input:bool = True) ->np.ndarray:
     if center_list is None:
         return None
-    radius = round((img_bgr.shape[0]+img_bgr.shape[1])/20)
+    radius = round((img_bgr.shape[0]+img_bgr.shape[1])/200)
     color = (0,255,0)
     if if_draw_on_input:
         
         for i in center_list:
-            cv2.circle(img_bgr,center_list,radius,color,-1)
+            cv2.circle(img_bgr,i,radius,color,-1)
             
         return img_bgr
     
@@ -363,8 +339,7 @@ def pick_up_roi(big_rec_list,img_ori:np.ndarray)->list:
 def pick_up_roi_transform(rec_list:list,img_ori:np.ndarray)->list:
     '''
     @timing \n
-    return roi_transform_list\n 
-    if nothing find, roi_transform_list[0] is black_canvas of shape(100,100,3)
+    return roi_transform_list, notice they are bgr images\n 
     '''
     if rec_list == None:
         return None
@@ -379,40 +354,18 @@ def pick_up_roi_transform(rec_list:list,img_ori:np.ndarray)->list:
         M=cv2.getPerspectiveTransform(i.astype(np.float32),dst_points)
         dst=cv2.warpPerspective(img_ori,M,(int(wid),int(hei)),flags=cv2.INTER_LINEAR)
         roi_transform_list.append(dst)
-        
     return roi_transform_list
+        
 
-def pre_process2(roi_list,armor_color:str)->list:
-    '''
-    preprocess for distinguish number\n
-    return roi_single_list,time
-    '''
-    out=[]
-    
-    t1=cv2.getTickCount()
-    for i in roi_list:
-        img_size_yx=(i.shape[0],i.shape[1])
-        dst=cv2.cvtColor(i,cv2.COLOR_BGR2GRAY)
-        #y,u,v=cv2.split(dst)
-        #127 for red
-        #90 for blue 
-        #dst=cv2.inRange(y.reshape(img_size_yx[0],img_size_yx[1],1),77,158)
-        if armor_color=='red':
-            ret,dst=cv2.threshold(dst,127,255,cv2.THRESH_BINARY)
-        elif armor_color=='blue':    
-            ret,dst=cv2.threshold(dst,90,255,cv2.THRESH_BINARY)
-        out.append(dst)
-    t2=cv2.getTickCount()
-    time=(t2-t1)/cv2.getTickFrequency()
-    return out,time
-
-@timing()
-def pre_process3(roi_transform_list:list,armor_color:str='red',strech_max:Optional[int]=None)->list:
+@timing(1)
+def pre_process2(roi_transform_list:list,armor_color:str='red',strech_max:Optional[int]=None)->list:
     '''
     @timing\n
     preprocess for distinguish number 
     return roi_single_list,time
     '''
+    if roi_transform_list is None:
+        return None
     roi_single_list=[]
     for i in roi_transform_list:
         dst=cv2.cvtColor(i,cv2.COLOR_BGR2GRAY)

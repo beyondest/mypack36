@@ -26,7 +26,7 @@ class Node_Webcam_MV(Node):
         
         
     def timer_pub_img_callback(self):
-        img = self.mv.get_img_continous()
+        img = self.mv.get_img()
         if img is not None:
             self.publisher.publish(self.cv_bridge.cv2_to_imgmsg(img,img_type))
         else:

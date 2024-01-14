@@ -2,7 +2,6 @@
 import numpy as np
 import math
 import cv2
-import control as con
 import os
 from typing import Optional
 class Videosaver:

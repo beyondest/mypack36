@@ -4,22 +4,22 @@ from autoaim_alpha.img import img_operation as imo
 
 if __name__ == "__main__":
     
-    ca = Mindvision_Camera(if_auto_exposure=False,
+    ca = Mindvision_Camera(output_format='BGR8',
+                           if_auto_exposure=False,
                            if_trigger_by_software=False,
-                           if_use_default_params=True,
-                           pingpong_exposure=[1*1000,10*1000])
+                           if_use_default_params=False,
+                           pingpong_exposure=[5*1000,50*1000],
+                           camera_mode='Dbg')
     fps = 0
     t11 = 0
     t21 = 0
-    #ca.enable_trackbar_config('config')
     with Custome_Context('camera',ca):
         while 1:
             
             
 
-            img,count = ca.get_img_pingpong_exposure()
+            img,count = ca.get_img()
             
-            #ca.detect_trackbar_actions_when_isp_config()
            
             
             if count % 2:
