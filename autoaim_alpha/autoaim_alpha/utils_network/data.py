@@ -615,7 +615,7 @@ class PIL_img_transform:
 
 
 def nomalize_for_onnx(img_or_imglist:Union[np.ndarray,list],
-                      dtype:type = np.float16)->Union[np.ndarray,None]:
+                      dtype:type = np.float32)->Union[np.ndarray,None]:
     if img_or_imglist is None:
         return None
     if isinstance(img_or_imglist,list):
@@ -627,7 +627,6 @@ def nomalize_for_onnx(img_or_imglist:Union[np.ndarray,list],
     else:
         inp = np.expand_dims(img_or_imglist,axis=0)
         inp = np.expand_dims(inp,axis=0)
-    
     
     
     return normalize(inp).astype(dtype=dtype)

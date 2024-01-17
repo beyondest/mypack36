@@ -60,15 +60,14 @@ class Mindvision_Camera(Custom_Context_Obj):
                  if_use_last_params:bool = False,
                  pingpong_exposure:Union[None,list] = None,
                  camera_mode:str = 'Dbg''Rel',
-                 tradition_config_folder_path:Union[str,None] = None,
+                 custom_isp_yaml_path:Union[str,None] = None,
                  armor_color:str = 'red'
                  ) -> None:
         
         CHECK_INPUT_VALID(camera_run_platform,'linux','windows')
         CHECK_INPUT_VALID(camera_mode,'Dbg','Rel')
-        if tradition_config_folder_path is not None:
-            CHECK_INPUT_VALID(os.path.exists(tradition_config_folder_path),True)
-            CHECK_INPUT_VALID(os.listdir(tradition_config_folder_path),['red','blue'])
+        if custom_isp_yaml_path is not None:
+            CHECK_INPUT_VALID(os.path.exists(custom_isp_yaml_path),True)
         CHECK_INPUT_VALID(armor_color,'red','blue')
         
         
@@ -91,11 +90,9 @@ class Mindvision_Camera(Custom_Context_Obj):
         self.hcamera = self._init()
         
         if not self.if_use_last_params:
-            if tradition_config_folder_path is not None:
-                root_dir = os.path.join(tradition_config_folder_path,armor_color)
-                isp_path= os.path.join(root_dir,'custom_isp_params.yaml')
-                self.load_params_from_yaml(isp_path)
-                lr1.info(f'CAMERA : Load params success from {isp_path}')
+            if custom_isp_yaml_path is not None:
+                self.load_params_from_yaml(custom_isp_yaml_path)
+                lr1.info(f'CAMERA : Load params success from {custom_isp_yaml_path}')
                 
             else:
                 lr1.warning(f'CAMERA : Will not use yaml params nor last params, but use default params')
@@ -110,7 +107,7 @@ class Mindvision_Camera(Custom_Context_Obj):
        
     
             
-    def enable_trackbar_config(self,window_name:str = 'isp_config',press_key_to_save:str = 's',save_yaml_path:str = './custom_isp_params.yaml'):
+    def enable_trackbar_config(self,window_name:str = 'isp_config',press_key_to_save:str = 's',save_yaml_path:str = './tmp_isp_params.yaml'):
         
         self.isp_window_name = window_name
         self.press_key_to_save = press_key_to_save
@@ -278,7 +275,7 @@ class Mindvision_Camera(Custom_Context_Obj):
         self.roi_resolution_xy = [wid,hei]
         
         
-    def detect_trackbar_actions_when_isp_config(self):
+    def detect_trackbar_config(self):
         
         self._update_camera_isp_params_from_trackbar()
         self._isp_config_by_isp_params()

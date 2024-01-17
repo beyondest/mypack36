@@ -1,5 +1,4 @@
 
-
 # Notice : aspect = wid/hei, wid is the horizon side length of img, hei is vertical side length of img 
 
 
@@ -32,5 +31,18 @@ BLUE_ARMOR_BINARY_ROI_THRESHOLD = 4
 
 # Custom Operation
 EXPAND_RATE = 1.5
-ROI_SINGLE_SHAPE = (32,32)
+
+
+
+
+# Net Params
+NET_INPUT_SIZE = [32,32]
+NET_INPUT_DTYPE = 'float32'
+ENGINE_TYPE = 'ort'
+NET_INPUT_NAME = 'inputs'
+NET_OUTPUT_NAME = 'outputs'
+NET_MODEL_PATH = './weights/11multi.onnx'
+NET_CONFIDENCE = 0.5
+NET_CLASS_YAML_PATH = './guess.yaml'
+
 

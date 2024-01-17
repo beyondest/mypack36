@@ -43,55 +43,101 @@ class PreProcess_Bgr_Params(Params):
         self.red_armor_binary_roi_threshold = RED_ARMOR_BINARY_ROI_THRESHOLD
         self.blue_armor_binary_roi_threshold = BLUE_ARMOR_BINARY_ROI_THRESHOLD
         
-    
-    
+class Net_Params(Params):
+    def __init__(self) -> None:
+        super().__init__()
+        self.engine_type = 'ort'
+        self.input_name = 'inputs'
+        self.output_name = 'outputs'
+        self.input_size =  NET_INPUT_SIZE
+        self.input_dtype = NET_INPUT_DTYPE
+        self.class_yaml_path = NET_CLASS_YAML_PATH
+        self.model_path = NET_MODEL_PATH
+        self.confidence = NET_CONFIDENCE
+        
+           
+
 ############################################### Armor Detector #################################################################3    
         
 
 class Armor_Detector:
     
     def __init__(self,
-                 model_path:str,
-                 engine_type:str,
-                 class_yaml_path:str,
                  armor_color:str = 'red',
                  mode:str = 'Dbg',
-                 confidence:float = 0.5
+                 tradition_config_folder :Union[str,None] = None,
+                 net_params_yaml :Union[str,None] = None,
+                 save_roi_key:str = 'c'
                  ) -> None:
+        
+        CHECK_INPUT_VALID(armor_color,'red','blue')
         CHECK_INPUT_VALID(mode,'Dbg','Rel')
         self.mode = mode
-        self.confidence = confidence
-        self.center_list = []
-        self.roi_single_list = []
-        self.big_rec_list = []
-        self.pro_list = []
-        self.result_list = []
         
-        # [[bigrec,center,result,pro],...]
-        self.final_result_list = [] 
-        # 
-        self.success_flag = False
+        self._reset_result()
         
-        self.tradition_detector = Traditional_Detector(
+        
+        self.net_detector = Net_Detector(
+                                         mode=mode,
+                                         net_params_yaml=net_params_yaml
+                                         )
+    
+        
+        self.tradition_detector = Tradition_Detector(
                                                        armor_color,
                                                        mode,
-                                                       if_enable_filter2=True
+                                                       tradition_config_folder_path=tradition_config_folder,
+                                                       roi_single_shape=self.net_detector.params.input_size,
+                                                       save_roi_key=save_roi_key
                                                        )    
         
-        self.net_detector = Net_Detector(model_path=model_path,
-                                         class_yaml_path=class_yaml_path,
-                                         mode=mode,
-                                         engine_type=engine_type
-                                         )
         
-    def get_result(self,img_bgr:np.ndarray,img_bgr_exposure2:np.ndarray):
+    @timing(1)
+    def get_result(self,img_bgr:np.ndarray,img_bgr_exposure2:np.ndarray)->Union[list,None]:
+        """get result of armor detection
+        Returns:
+            Union[list,None]:
+            
+                if success,return a list of dict,each dict contains 'big_rec','center','result','probability'\n
+                if fail,return None
+                
+        """
+        self._reset_result()
         self._tradition_part(img_bgr,img_bgr_exposure2)
         self._net_part()
         self._filter_part()
+        
         if self.success_flag == True:
             if self.mode == 'Dbg':
+                
+                draw_big_rec_list(self.big_rec_list,img_bgr,color=(0,255,0))
+                draw_center_list(self.center_list,img_bgr,color=(0,255,0))
+                
                 for i in self.final_result_list:
-                    add_text(img_bgr,f'{i[2]}:',i[3],np.round(i[1
+                    
+                    add_text(img_bgr,
+                             f'{i["probability"]:.2f}',
+                             value=i['result'],
+                             pos=(round(i['center'][0]+20),round(i['center'][1])+20),
+                             color=(0,0,255),
+                             scale_size=0.7)
+                    
+                    
+            return self.final_result_list
+        else:
+            return None
+
+    def _reset_result(self):
+        self.center_list = None
+        self.roi_single_list = None
+        self.big_rec_list = None
+        self.probability_list = None
+        self.result_list = None
+        self.final_result_list = None
+        self.success_flag = False
+        
+        
+    
     
     def _tradition_part(self,img_bgr:np.ndarray,img_bgr_exposure2:np.ndarray):
         
@@ -99,7 +145,9 @@ class Armor_Detector:
             lr1.warning("IMG : No img to apply tradition part")
             return None
       
-        self.center_list,self.roi_single_list,self.big_rec_list , tradition_time= self.tradition_detector.get_output(img_bgr,img_bgr_exposure2)
+        tmp_list, tradition_time= self.tradition_detector.get_output(img_bgr,img_bgr_exposure2)
+        self.center_list,self.roi_single_list,self.big_rec_list  = tmp_list
+        
         if self.mode == 'Dbg':
             print(f'Tradition Time : {tradition_time:.6f}')
             
@@ -114,25 +162,31 @@ class Armor_Detector:
             return None
         
         
-        self.pro_list,self.result_list,net_time = self.net_detector.get_output(self.roi_single_list)     
+        tmp_list,net_time = self.net_detector.get_output(self.roi_single_list)  
+        self.probability_list,self.result_list = tmp_list   
            
         if self.mode == 'Dbg':
             print(f"Net Time : {net_time:.6f}")
-            if self.pro_list is not None:
-                print(f'Net Find Target : {len(self.pro_list)}')
+            if self.probability_list is not None:
+                print(f'Net Find Target : {len(self.probability_list)}')
             else:
                 print('Net Find Nothing')    
             
     def _filter_part(self):
         self.final_result_list = []
         
-        if self.pro_list is not None and len(self.pro_list) > 0:
-            for i in range(len(self.pro_list)):
-                if self.pro_list[i] > self.confidence:
+        if self.probability_list is not None:
+            
+            for i in range(len(self.probability_list)):
+                if self.probability_list[i] > self.net_detector.params.confidence:
                     
-                    self.final_result_list.append(self.big_rec_list[i],self.center_list[i],self.result_list[i],self.pro_list[i])
+                    each_result = {'big_rec':self.big_rec_list[i],'center':self.center_list[i],'result':self.result_list[i],'probability':self.probability_list[i]}
+                    self.final_result_list.append(each_result)
+            
             if len(self.final_result_list)>0:
                 self.success_flag = True
+                sorted(self.final_result_list,key=lambda x:x['probability'],reverse=True)
+                
             else:
                 self.success_flag = False
         else:
@@ -140,16 +194,15 @@ class Armor_Detector:
             
             
             
-############################################## Traditional Detector#######################################################    
+############################################## tradition Detector#######################################################    
     
 
-class Traditional_Detector:
+class Tradition_Detector:
     def __init__(self,
                  armor_color:str,
                  mode:str,
-                 if_enable_filter2:bool = True,
+                 roi_single_shape:list,
                  tradition_config_folder_path:Union[str,None] = None,
-                 roi_single_shape:tuple = ROI_SINGLE_SHAPE,
                  save_roi_key:str = 'c'
                  ) -> None:
         
@@ -160,10 +213,10 @@ class Traditional_Detector:
         self.mode = mode
         self.filter1 = Filter_of_lightbar(mode)
         self.filter2 = Filter_of_big_rec(mode)
-        self.if_enable_filter2 = if_enable_filter2
         self.preprocess_bgr_params = PreProcess_Bgr_Params()
         self.armor_color = armor_color
         self.roi_single_shape =roi_single_shape
+        
         if tradition_config_folder_path is not None:
             self.load_params_from_folder(tradition_config_folder_path)
         
@@ -176,26 +229,34 @@ class Traditional_Detector:
             self.save_roi_key = save_roi_key
         
     @timing(1)
-    def get_output(self,img_bgr:np.ndarray,img_bgr_exposure2:np.ndarray):
+    def get_output(self,img_bgr:np.ndarray,img_bgr_exposure2:np.ndarray)->Union[list,None]:
         """@timing
 
         Input:
             img_bgr,img_bgr_in_exposure2 ,shape is (512,640,3)
         Returns:
-            center_list,roi_binary_list,big_rec_list (they are in same length)
+            [center_list,roi_binary_list,big_rec_list] (they are in same length)
         Notice:
             if Dbg,will draw on img_bgr
             
         """
         if img_bgr is None or img_bgr_exposure2 is None:
-            lr1.warning("IMG : traditional detector get None img")
+            lr1.warning("IMG : tradition detector get None img")
         
             return None
         
+        # No change to img_bgr
         img_single, preprocess_time1 = self._pre_process_bgr1(img_bgr)
-        big_rec_list,find_big_rec_time = self._find_big_rec(img_single,img_bgr)
+        
+        # Draw small cont to img_bgr
+        big_rec_list,find_big_rec_time = self._find_big_rec(img_single,None)
+        
+        # No change to img_bgr
         roi_transform_list , pickup_roi_transform_time = self._pickup_roi_transform(big_rec_list,img_bgr_exposure2)
+        
+        
         roi_binary_list, binary_roi_time = self._binary_roi_transform_list(roi_transform_list)
+        
         center_list = turn_big_rec_list_to_center_points_list(big_rec_list)
         
         if self.mode == 'Dbg':
@@ -204,25 +265,50 @@ class Traditional_Detector:
             print('pickup_roi_transfomr_time',pickup_roi_transform_time)
             print('binary_time',binary_roi_time)
             cv2.imshow('single',img_single)
-            draw_big_rec_list(big_rec_list,img_bgr)    
-            draw_center_list(center_list,img_bgr)
-            if big_rec_list is not None and len(big_rec_list) == 1:
-                cv2.imshow('roi_transform',roi_transform_list[0])
-                cv2.imshow('roi_binary',roi_binary_list[0])
+            
+            if big_rec_list is not None and len(big_rec_list)>0:
+                combined_roi_transform = roi_transform_list[0]
+                combined_roi_binary = roi_binary_list[0]
+                for i in range(1,len(roi_transform_list)):
+                    combined_roi_transform = np.r_[combined_roi_transform,roi_transform_list[i]]
+                    combined_roi_binary = np.r_[combined_roi_binary,roi_binary_list[i]]
+                    
+                cv2.imshow(f'roi_transform',combined_roi_transform)
+                cv2.imshow(f'roi_binary',combined_roi_binary) 
                 self.roi_single = roi_binary_list[0]
             
             
-        return center_list,roi_binary_list,big_rec_list
+        return [center_list,roi_binary_list,big_rec_list]
     
+    def save_params_to_folder(self,tradition_config_folder_path:str = './tmp_tradition_config')->None:
+        
+        filter1_yaml_path = os.path.join(tradition_config_folder_path,self.armor_color,'filter1_params.yaml')
+        filter2_yaml_path = os.path.join(tradition_config_folder_path,self.armor_color,'filter2_params.yaml')
+        preprocess_yaml_path = os.path.join(tradition_config_folder_path,self.armor_color,'preprocess_params.yaml')
+        
+        if not os.path.exists(tradition_config_folder_path):
+            os.makedirs(tradition_config_folder_path)
+        if not os.path.exists(os.path.join(tradition_config_folder_path,self.armor_color)):
+            os.makedirs(os.path.join(tradition_config_folder_path,self.armor_color))
+        
+        self.filter1.filter_params.save_params_to_yaml(filter1_yaml_path)
+        self.filter2.filter_params.save_params_to_yaml(filter2_yaml_path)
+        self.preprocess_bgr_params.save_params_to_yaml(preprocess_yaml_path)
+        
+        lr1.info(f'IMG : Save tradition params success : {tradition_config_folder_path}')
+        
     
     def load_params_from_folder(self,tradition_confit_folder_path:str):
         
         CHECK_INPUT_VALID(os.path.exists(tradition_confit_folder_path),True)
-        CHECK_INPUT_VALID(os.listdir(tradition_confit_folder_path),['red','blue'])
+        CHECK_INPUT_VALID(os.listdir(tradition_confit_folder_path),['red','blue'],['red'],['blue'])
+        
         root_path = os.path.join(tradition_confit_folder_path,self.armor_color)
         preprocess_path = os.path.join(root_path,'preprocess_params.yaml')
         filter1_path = os.path.join(root_path,'filter1_params.yaml')
         filter2_path = os.path.join(root_path,'filter2_params.yaml')
+        
+        
         self.preprocess_bgr_params.load_params_from_yaml(preprocess_path)
         lr1.info(f'IMG : Load preprocess params success : {preprocess_path}')
         
@@ -242,11 +328,19 @@ class Traditional_Detector:
         cv2.createTrackbar('yuv_range_min',window_name,0,255,for_trackbar)
         cv2.createTrackbar('yuv_range_max',window_name,0,255,for_trackbar)
         cv2.createTrackbar('threshold',window_name,0,255,for_trackbar)
+        cv2.createTrackbar('kernel_wid',window_name,0,255,for_trackbar)
+        cv2.createTrackbar('kernel_hei',window_name,0,255,for_trackbar)
+        
+
+        cv2.setTrackbarPos('kernel_wid',window_name,self.preprocess_bgr_params.close_kernel_size[1])
+        cv2.setTrackbarPos('kernel_hei',window_name,self.preprocess_bgr_params.close_kernel_size[0])
+        
         
         if self.armor_color == 'red':
             cv2.setTrackbarPos('yuv_range_min',window_name,self.preprocess_bgr_params.red_armor_yuv_range[0])
             cv2.setTrackbarPos('yuv_range_max',window_name,self.preprocess_bgr_params.red_armor_yuv_range[1])
             cv2.setTrackbarPos('threshold',window_name,self.preprocess_bgr_params.red_armor_binary_roi_threshold)
+            
         if self.armor_color == 'blue':
             cv2.setTrackbarPos('yuv_range_min',window_name,self.preprocess_bgr_params.blue_armor_yuv_range[0])
             cv2.setTrackbarPos('yuv_range_max',window_name,self.preprocess_bgr_params.blue_armor_yuv_range[1])
@@ -254,6 +348,10 @@ class Traditional_Detector:
             
     
     def detect_trackbar_config(self):
+        
+        self.preprocess_bgr_params.close_kernel_size[0] = cv2.getTrackbarPos('kernel_wid',self.config_window_name)
+        self.preprocess_bgr_params.close_kernel_size[1] = cv2.getTrackbarPos('kernel_hei',self.config_window_name)
+        
         
         if self.armor_color ==  'red':
             
@@ -266,14 +364,13 @@ class Traditional_Detector:
             self.preprocess_bgr_params.blue_armor_yuv_range[1] = cv2.getTrackbarPos('yuv_range_max',self.config_window_name)
             self.preprocess_bgr_params.blue_armor_binary_roi_threshold = cv2.getTrackbarPos('threshold',self.config_window_name)
             
-        
         if cv2.waitKey(1) == ord(self.press_key_to_save):
             self.preprocess_bgr_params.save_params_to_yaml('preprocess_params.yaml')
         if cv2.waitKey(1) == ord(self.save_roi_key):
             if self.roi_single is not None:
                 cv2.imwrite('roi_tmp.png',self.roi_single)
         
-    
+            
     
     
     @timing(1)
@@ -299,8 +396,7 @@ class Traditional_Detector:
                         if small_rec_pairs_list is not None else None 
         big_rec_list = expand_rec_wid(big_rec_list,EXPAND_RATE,img_size_yx=img_single.shape)
         
-        big_rec_list = big_rec_list if not self.if_enable_filter2 \
-                                else self.filter2.get_output(big_rec_list)
+        big_rec_list = self.filter2.get_output(big_rec_list)
             
         return big_rec_list
     
@@ -655,28 +751,32 @@ class Filter_of_big_rec:
 
 class Net_Detector:
     def __init__(self,
-                 model_path:str,
-                 class_yaml_path:str,
                  mode:str = 'Dbg',
-                 engine_type:str = 'ort',
-                 onnx_input_name:str = 'inputs',
-                 onnx_output_name:str = 'outputs',
-                 dtype:type = np.float32
+                 net_params_yaml : Union[str,None] = None
                  ) -> None:
         CHECK_INPUT_VALID(mode,'Dbg','Rel')
-        CHECK_INPUT_VALID(engine_type,'ort','trt')
         
-        self.dtype = dtype
         self.mode = mode
-        self.engine_type = engine_type
-        self.class_info = Data.get_file_info_from_yaml(class_yaml_path)
-        if self.engine_type == 'ort':
-            self.engine = Onnx_Engine(model_path,if_offline=True)
-            self.onnx_inputname = onnx_input_name
-            self.onnx_outputname = onnx_output_name
+        self.params = Net_Params()
+        
+        if net_params_yaml is not None:
+            self.params.load_params_from_yaml(net_params_yaml)
+        
+        self.class_info = Data.get_file_info_from_yaml(self.params.class_yaml_path)
+        
+        if self.params.engine_type == 'ort':
+            self.input_dtype = np.float32 if self.params.input_dtype == 'float32' else np.float16
+            
+            self.engine = Onnx_Engine(self.params.model_path,if_offline=True)
+            self.onnx_inputname = self.params.input_name
+            self.onnx_outputname = self.params.output_name
 
 
 
+    def save_params_to_yaml(self,yaml_path:str = './tmp_net_params.yaml'):
+        self.params.save_params_to_yaml(yaml_path)
+        
+        
     @timing(1)
     def get_output(self,
                    input_list:Union[list,None]
@@ -687,23 +787,28 @@ class Net_Detector:
             [roi_single1,roi_single2,...]
 
         Returns:
-            [probability1,probability2,...],[armor_type1,armortype2,...]
+            [[probability1,probability2,...],[armor_type1,armortype2,...]]
         """
         if input_list is None:
-            return None,None
-        if len(input_list) is None:
-            return None,None
+            return [None,None]
         
-        if self.engine_type == 'ort':
-            inp = nomalize_for_onnx(input_list,dtype=self.dtype)
+        if len(input_list) == 0 :
+            return [None,None]
+        
+        if self.params.engine_type == 'ort':
+            
+            inp = nomalize_for_onnx(input_list,dtype=self.input_dtype)
             output,ref_time =self.engine.run(output_nodes_name_list=None,
                             input_nodes_name_to_npvalue={self.onnx_inputname:inp})
             probabilities_list,index_list = trans_logits_in_batch_to_result(output[0])
             result_list = [self.class_info[index] for index in index_list]
+            
             if self.mode == 'Dbg':
                 print(f'Refence Time: {ref_time:.5f}')
                 
-            return probabilities_list,result_list
+            return [probabilities_list,result_list]
+        else:
+            raise TypeError('Engine Type Error')
         
         
     

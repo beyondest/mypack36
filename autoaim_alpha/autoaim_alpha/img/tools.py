@@ -107,18 +107,20 @@ def turn_big_rec_list_to_center_points_list(rec_list:list)->list:
     return out
 
 
-def draw_single_cont(ori_copy:np.ndarray,cont:np.ndarray,color:int=2,thick:int=2):
+def draw_single_cont(ori_copy:np.ndarray,cont:np.ndarray,color:tuple=(0,255,0),thick:int=2):
     '''
     @cont:  np.array(left_down,left_up,right_up,right_down)
     @color=0,1,2=blue,green,red
     @thick:   defalt is 2
     '''
-    colorlist=[(255,0,0),(0,255,0),(0,0,255)]
-    cv2.drawContours(ori_copy,[cont],-1,colorlist[color],thick)
+    cv2.drawContours(ori_copy,[cont],-1,color,thick)
     return 0
 
 
-def draw_big_rec_list(big_rec_list,img_bgr:np.ndarray,if_draw_on_input:bool = True)->np.ndarray:
+def draw_big_rec_list(big_rec_list,
+                      img_bgr:np.ndarray,
+                      if_draw_on_input:bool = True,
+                      color:tuple = (0,255,0))->np.ndarray:
     '''
     return img_bgr
     '''
@@ -126,24 +128,28 @@ def draw_big_rec_list(big_rec_list,img_bgr:np.ndarray,if_draw_on_input:bool = Tr
         return None
     
     if if_draw_on_input:
-
         for i in big_rec_list:
-            draw_single_cont(img_bgr,i,2,3)
-            return img_bgr
+            draw_single_cont(img_bgr,i,color)
+        return img_bgr
+    
     else:
+        out = img_bgr.copy()
         for i in big_rec_list:
-            out = img_bgr.copy()
-            draw_single_cont(img_bgr,i,2,3)
-            return out
+            draw_single_cont(img_bgr,i,color=color)
+        return out
+        
             
     
 
-def draw_center_list(center_list:list,img_bgr:np.ndarray, if_draw_on_input:bool = True) ->np.ndarray:
+def draw_center_list(center_list:list,
+                     img_bgr:np.ndarray,
+                     if_draw_on_input:bool = True,
+                     color = (0,255,0)
+                     ) ->np.ndarray:
     if center_list is None:
         return None
     
     radius = round((img_bgr.shape[0]+img_bgr.shape[1])/200)
-    color = (0,255,0)
     
     if if_draw_on_input:
         
@@ -314,9 +320,11 @@ def expand_rec_wid(rec_cont_list:Union[list,None],expand_rate:float=1.5,img_size
         
 
 def cvshow(img:np.ndarray,windows_name:str='show'):
+    
     '''
     use to show quickly
     '''
+    
     cv2.imshow(windows_name,img)
     while True:
         if (cv2.waitKey(0) & 0xff )== 27:
@@ -324,5 +332,7 @@ def cvshow(img:np.ndarray,windows_name:str='show'):
     cv2.destroyAllWindows()
     
 def normalize(ori_img:np.ndarray,scope:tuple=(0,1))->np.ndarray:
+    if ori_img is None:
+        return None
     '''(y-a)/(b-a)=(x-xmin)/(xmax-xmin)'''
     return (ori_img-ori_img.min())/(ori_img.max()-ori_img.min())*(scope[1]-scope[0])+scope[0]

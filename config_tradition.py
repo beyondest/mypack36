@@ -4,6 +4,7 @@ from autoaim_alpha.autoaim_alpha.img.tools import add_text
 armor_color = 'red'
 tradition_config_path = './tradition_config'
 mode = 'Dbg'
+
 if __name__ == "__main__":
     
     ca = Mindvision_Camera(output_format='BGR8',
@@ -22,11 +23,12 @@ if __name__ == "__main__":
     ca.enable_trackbar_config(press_key_to_save='a')
     
     
-    tradition_detector = detector.Traditional_Detector(armor_color,
-                                                       mode,
-                                                       True,
-                                                       tradition_config_path,
-                                                       roi_single_shape=(32,32))
+    tradition_detector = detector.Tradition_Detector(armor_color=armor_color,
+                                                     mode=mode,
+                                                     roi_single_shape=[32,32],
+                                                     tradition_config_folder_path=tradition_config_path
+                                                       
+                                                       )
     
     tradition_detector.enable_preprocess_config(press_key_to_save='s')
     tradition_detector.filter1.enable_trackbar_config(press_key_to_save='d')
@@ -49,7 +51,7 @@ if __name__ == "__main__":
             cv2.imshow('ori',img_ori)
             print(fps)
             
-            ca.detect_trackbar_actions_when_isp_config()
+            ca.detect_trackbar_config()
             tradition_detector.detect_trackbar_config()
             tradition_detector.filter1.detect_trackbar_config()
             tradition_detector.filter2.detect_trackbar_config()

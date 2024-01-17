@@ -1,0 +1,10 @@
+class_yaml_path: ./guess.yaml
+confidence: 0.5
+engine_type: ort
+input_dtype: float32
+input_name: inputs
+input_size:
+- 32
+- 32
+model_path: ./weights/11multi.onnx
+output_name: outputs
