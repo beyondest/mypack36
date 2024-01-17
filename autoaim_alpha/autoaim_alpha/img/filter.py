@@ -2,10 +2,28 @@
 from .const import *
 from ..os_op.basic import *
 from .tools import *
+  
+  
+  
+  
+class Filter_Base:
+    def __init__(self) -> None:
+        pass
     
+    def get_output(self):
+        raise NotImplementedError('Please implement the get_output method')
+    
+    def enable_trackbar_config(self):
+        raise NotImplementedError('Please implement the enable_trackbar_config method')
+    
+    def detect_trackbar_config(self):
+        raise NotImplementedError('Please implement the detect_trackbar_config method')
+    
+
     
 class Filter_Lightbar_Params(Params):
     def __init__(self) -> None:
+        
         super().__init__()
         self.accept_area_range = SMALL_LIGHTBAR_SINGLE_AREA_RANGE
         self.accept_aspect_ratio_range = SMALL_LIGHTBAR_SINGLE_ASPECT_RATIO_RANGE
@@ -15,11 +33,18 @@ class Filter_Lightbar_Params(Params):
 
 class Filter_Big_Rec_Params(Params):
     def __init__(self) -> None:
+        
         super().__init__()
         self.accept_area_range =  BIG_REC_AREA_RANGE
         self.accept_aspect_ratio_range = BIG_REC_ASPECT_RATIO_RANGE    
+        
+        
+        
+    
+        
 
-class Filter_of_lightbar:
+class Filter_of_lightbar(Filter_Base):
+    
     def __init__(self,
                  mode:str = 'Dbg''Rel'
                  ) -> None:
@@ -32,7 +57,6 @@ class Filter_of_lightbar:
     def get_output(self,input_list:list,img_bgr:Union[np.ndarray,None] = None)->Union[list,None]:
         
         """Get pairs of conts after filter
-
         Args:
             input_list (list): list of conts
 
@@ -40,6 +64,7 @@ class Filter_of_lightbar:
             Union[list,None]: 
             if nothing remained , return None, else return [(cont1,cont2),...]
         """
+        
         if input_list is None:
             return None
         
@@ -59,6 +84,7 @@ class Filter_of_lightbar:
                 wid = 1
             aspect = wid/hei
             if self.mode == 'Dbg':
+                
                 print('Light Bar Aspect : ',aspect)
                 print('Light Bar Area : ',rec_area)
                 if img_bgr is not None:
@@ -70,9 +96,16 @@ class Filter_of_lightbar:
             
             if  INRANGE(aspect,self.filter_params.accept_aspect_ratio_range) \
             and INRANGE(rec_area,self.filter_params.accept_area_range):
-                tmp_list.append(each_cont)
+                
+                each_dict = {'cont':each_cont,'center':[x,y]}
+                tmp_list.append(each_dict)
+        
+        sorted(tmp_list,key=lambda x:x['center'][0])
+        tmp_list = [each_dict['cont'] for each_dict in tmp_list]
+        
         if self.mode == 'Dbg':
             print(f'Filter Light Bar after one order : {len(tmp_list)}')      
+        
         
         # Two order filter
         for each_cont in tmp_list:
@@ -84,9 +117,11 @@ class Filter_of_lightbar:
             else:
                 aspect = wid/hei
             
+            
             for feature_tuple in feature_tuple_list:
                 two_area_ratio = rec_area/feature_tuple[0]
                 two_aspect_ratio = aspect/feature_tuple[1]
+                
                 center_dis = CAL_EUCLIDEAN_DISTANCE((x,y),feature_tuple[2])
                 
                 if self.mode == "Dbg":
@@ -167,7 +202,7 @@ class Filter_of_lightbar:
             
             
             
-class Filter_of_big_rec:
+class Filter_of_big_rec(Filter_Base):
     
     def __init__(self,mode
                  ) -> None:
