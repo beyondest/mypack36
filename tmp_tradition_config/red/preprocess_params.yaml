@@ -3,7 +3,7 @@ blue_armor_yuv_range:
 - 145
 - 255
 close_kernel_size:
-- 45
+- 35
 - 11
 gaussianblur_kernel_size:
 - 3

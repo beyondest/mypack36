@@ -7,7 +7,7 @@ mode = 'Dbg'
 
 if __name__ == "__main__":
     
-    ca = Mindvision_Camera(output_format='BGR8',
+    ca = Mindvision_Camera(output_format='bgr8',
                            if_auto_exposure=False,
                            if_trigger_by_software=False,
                            if_use_last_params=False,

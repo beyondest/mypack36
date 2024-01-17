@@ -1,33 +1,35 @@
 from autoaim_alpha.autoaim_alpha.camera.mv_class import Mindvision_Camera
 from autoaim_alpha.autoaim_alpha.img.detector import Armor_Detector
 from autoaim_alpha.autoaim_alpha.os_op.basic import *
-from autoaim_alpha.autoaim_alpha.img.tools import add_text
+from autoaim_alpha.autoaim_alpha.img.tools import *
 
 import time
 
 armor_color = 'red'
 mode = 'Dbg'
 tra_config_folder = './tmp_tradition_config'
-net_params_yaml = './tmp_net_params.yaml'
+net_config_folder = './tmp_net_config'
 custom_isp_params_yaml = './tradition_config/red/custom_isp_params.yaml'
 
 
 fps = 0
 
 if __name__ == '__main__':
+    
     ca = Mindvision_Camera(        
-                                   output_format='BGR8',
+                                   output_format='bgr8',
                                    camera_mode=mode,
                                    custom_isp_yaml_path=custom_isp_params_yaml,
                                    armor_color=armor_color
                                    )
     
     ca.print_show_params()
+    
     de = Armor_Detector(
                         armor_color=armor_color,
                         mode=mode,
                         tradition_config_folder=tra_config_folder,
-                        net_params_yaml=net_params_yaml,
+                        net_config_folder=net_config_folder,
                         save_roi_key='c'
                         )
     
@@ -42,6 +44,7 @@ if __name__ == '__main__':
     with Custome_Context('camera',ca):
         
         while True:
+            
             t1 = time.perf_counter()
             
             img = ca.get_img()
@@ -53,24 +56,24 @@ if __name__ == '__main__':
             
             t3 = time.perf_counter()
             print(f'get_result_time:{t3-t2}')
-            if result_list:
-                print(f'Final result nums: {len(result_list)}')
             
+            de.visualize(img,fps,windows_name='result')
+
+                    
             ca.detect_trackbar_config()
             de.tradition_detector.detect_trackbar_config()
             de.tradition_detector.filter1.detect_trackbar_config()
             de.tradition_detector.filter2.detect_trackbar_config()
             
             
-            print(fps)
-            add_text(img,'FPS',fps,color=(255,255,255),scale_size=0.8)  
-                 
-            cv2.imshow('camera',img)
+            
+            
             
             t4 = time.perf_counter()
             fps = round(1/(t4-t1))
             
             key = cv2.waitKey(1)
+            
             if key == ord('q'):
                 break
     

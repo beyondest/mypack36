@@ -21,7 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'node_webcam_mv = autoaim_alpha.node_webcam_mv:main',
-            'node_img_processor = autoaim_alpha.node_img_processor:main'
+            'node_detect = autoaim_alpha.node_detect:main',
         ],
     },
 )

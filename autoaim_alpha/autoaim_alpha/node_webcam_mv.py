@@ -9,9 +9,11 @@ from sensor_msgs.msg import Image
 
 from .camera.mv_class import *
 
+topic = topic_img_raw
+qos_profile = qos_profile_img_raw
 
 
-class Node_Webcam_MV(Node):
+class Node_Webcam_MV(Node,Custom_Context_Obj):
     def __init__(self,
                  name:str,
                  time_s:float
@@ -19,22 +21,38 @@ class Node_Webcam_MV(Node):
         super().__init__(name)
         
 
-        self.publisher = self.create_publisher(Image,topic_img_raw,qos_profile=10)
+        self.publisher = self.create_publisher(
+                                               Image,
+                                               topic=topic,
+                                               qos_profile=qos_profile
+                                               )
+        
         self.timer_pub_img = self.create_timer(time_s,self.timer_pub_img_callback)
         self.cv_bridge = cv_bridge.CvBridge()
-        self.mv = Mindvision_Camera()
+        
+        self.mv = Mindvision_Camera(
+                                    output_format = camera_output_format,
+                                    camera_mode=mode,
+                                    custom_isp_yaml_path=isp_params_path,
+                                    armor_color=armor_color
+                                    )
         
         
     def timer_pub_img_callback(self):
+        
         img = self.mv.get_img()
+        
         if img is not None:
-            self.publisher.publish(self.cv_bridge.cv2_to_imgmsg(img,img_type))
+            
+            self.publisher.publish(self.cv_bridge.cv2_to_imgmsg(img,camera_output_format))
+            
         else:
             self.get_logger().error("No img get from camera")
             
         self.get_logger().info("Publish img success")
     
     def _start(self):
+        
         self.mv._start()
         self.get_logger().info(f"Node {self.get_name()} start success")
         

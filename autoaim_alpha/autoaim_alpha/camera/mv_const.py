@@ -1,14 +1,14 @@
 
 from ..camera import mvsdk
-CAMERA_TYPE_TO_SHOW_DICT =    {mvsdk.CAMERA_MEDIA_TYPE_RGB8:"RGB8",
-                               mvsdk.CAMERA_MEDIA_TYPE_BGR8:"BGR8",
-                               mvsdk.CAMERA_MEDIA_TYPE_YUV8_UYV:"YUV8",
-                               mvsdk.CAMERA_MEDIA_TYPE_BAYBG8:"BAYBG8",
-                               mvsdk.CAMERA_MEDIA_TYPE_BAYGB8:"BAYGB8",
-                               mvsdk.CAMERA_MEDIA_TYPE_RGB:"RGB",
-                               mvsdk.CAMERA_MEDIA_TYPE_BGR10:"BGR10",
-                               mvsdk.CAMERA_MEDIA_TYPE_BGR12:"BGR12",
-                               mvsdk.CAMERA_MEDIA_TYPE_BGR565P:"BGR565P"
+CAMERA_TYPE_TO_SHOW_DICT =    {mvsdk.CAMERA_MEDIA_TYPE_RGB8:"rgb8",
+                               mvsdk.CAMERA_MEDIA_TYPE_BGR8:"bgr8",
+                               mvsdk.CAMERA_MEDIA_TYPE_YUV8_UYV:"yuv8",
+                               mvsdk.CAMERA_MEDIA_TYPE_BAYBG8:"baybg8",
+                               mvsdk.CAMERA_MEDIA_TYPE_BAYGB8:"baygb8",
+                               mvsdk.CAMERA_MEDIA_TYPE_RGB:"rgb",
+                               mvsdk.CAMERA_MEDIA_TYPE_BGR10:"bgr10",
+                               mvsdk.CAMERA_MEDIA_TYPE_BGR12:"bgr12",
+                               mvsdk.CAMERA_MEDIA_TYPE_BGR565P:"bgr565P"
                               }
 CAMERA_SHOW_TO_TYPE_DICT = {v:k for k,v in CAMERA_TYPE_TO_SHOW_DICT.items()}
 CAMERA_TRACKBAR_TO_TYPE_DICT = {k:v for k,(v,_) in enumerate(CAMERA_TYPE_TO_SHOW_DICT.items())}

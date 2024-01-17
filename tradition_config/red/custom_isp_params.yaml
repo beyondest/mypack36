@@ -2,7 +2,7 @@ analog_gain: 5
 analog_gain_x: 2
 b_gain: 135
 contrast: 100
-exposure_time_us: 2144
+exposure_time_us: 4000
 fps: 2
 g_gain: 182
 gamma: 100

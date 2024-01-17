@@ -41,8 +41,6 @@ NET_INPUT_DTYPE = 'float32'
 ENGINE_TYPE = 'ort'
 NET_INPUT_NAME = 'inputs'
 NET_OUTPUT_NAME = 'outputs'
-NET_MODEL_PATH = './weights/11multi.onnx'
 NET_CONFIDENCE = 0.5
-NET_CLASS_YAML_PATH = './guess.yaml'
 
 
