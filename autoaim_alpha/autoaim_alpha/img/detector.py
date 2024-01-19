@@ -98,8 +98,6 @@ class Armor_Detector:
                 pass
             else:
                 pass
-            
-                    
                     
             return self.final_result_list
         else:
@@ -125,7 +123,8 @@ class Armor_Detector:
                 
         cv2.imshow(windows_name,img)
         cv2.waitKey(1)
-                
+    
+            
                 
                 
     def _reset_result(self):
@@ -182,6 +181,7 @@ class Armor_Detector:
                 if self.probability_list[i] > self.net_detector.params.confidence:
                     
                     each_result = {'big_rec':self.big_rec_list[i],'center':self.center_list[i],'result':self.result_list[i],'probability':self.probability_list[i]}
+                    
                     self.final_result_list.append(each_result)
             
             if len(self.final_result_list)>0:
@@ -217,7 +217,9 @@ class Tradition_Detector:
         self.Tradition_Params = Tradition_Params()
         self.armor_color = armor_color
         self.roi_single_shape =roi_single_shape
+        self.if_enable_save_roi = False
         
+                
         if tradition_config_folder_path is not None:
             self.load_params_from_folder(tradition_config_folder_path)
         
@@ -277,7 +279,12 @@ class Tradition_Detector:
                 cv2.imshow(f'roi_transform',combined_roi_transform)
                 cv2.imshow(f'roi_binary',combined_roi_binary) 
                 self.roi_single = roi_binary_list[0]
-            
+        
+        if self.if_enable_save_roi:
+            if roi_binary_list:
+                for i in range(len(roi_binary_list)):
+                    save_path = os.path.join(self.save_folder,self.armor_color,f'{time.time()}.jpg')
+                    cv2.imwrite(save_path,roi_binary_list[i])
             
         return [center_list,roi_binary_list,big_rec_list]
     
@@ -377,7 +384,14 @@ class Tradition_Detector:
                 cv2.imwrite('roi_tmp.png',self.roi_single)
         
             
-    
+    def enable_save_roi(self,save_folder:str = 'roi_binary'):
+        if not os.path.exists(save_folder):
+            os.makedirs(save_folder)
+        if not os.path.exists(os.path.join(save_folder,self.armor_color)):
+            os.makedirs(os.path.join(save_folder,self.armor_color))
+        self.save_folder = save_folder
+        self.if_enable_save_roi = True
+        
     
     @timing(1)
     def _find_big_rec(self,img_single:np.ndarray,img_bgr:Union[np.ndarray,None] = None)->Union[list,None]:

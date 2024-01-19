@@ -69,11 +69,11 @@ class Filter_of_lightbar(Filter_Base):
             return None
         
         tmp_list = []
-        feature_tuple_list = []
         out_list = []
         
         if self.mode == 'Dbg':
             print(f'Filter Light Bar Begin : get conts {len(input_list)}')
+            
         # One order filter
         for each_cont in input_list:
             x,y,wid,hei,rec_points_list,rec_area = getrec_info(each_cont)
@@ -97,45 +97,41 @@ class Filter_of_lightbar(Filter_Base):
             if  INRANGE(aspect,self.filter_params.accept_aspect_ratio_range) \
             and INRANGE(rec_area,self.filter_params.accept_area_range):
                 
-                each_dict = {'cont':each_cont,'center':[x,y]}
+                each_dict = {'cont':each_cont,'center':[x,y],'aspect_ratio':aspect,'rec_area':rec_area}
                 tmp_list.append(each_dict)
         
-        sorted(tmp_list,key=lambda x:x['center'][0])
-        tmp_list = [each_dict['cont'] for each_dict in tmp_list]
+        
         
         if self.mode == 'Dbg':
             print(f'Filter Light Bar after one order : {len(tmp_list)}')      
         
+        if len(tmp_list)  == 0:
+            return None
         
+        tmp_list = sorted(tmp_list,key=lambda x:x['center'][0],reverse=True)
+
         # Two order filter
-        for each_cont in tmp_list:
+        for i in range(1,len(tmp_list)):
             
-            x,y,wid,hei,rec_points_list,rec_area = getrec_info(each_cont)
+            pre_dict = tmp_list[i-1]
+            cur_dict = tmp_list[i]
             
-            if hei == 0:
-                aspect = 0
-            else:
-                aspect = wid/hei
+            two_area_ratio = pre_dict['rec_area']/cur_dict['rec_area']
+            two_aspect_ratio = pre_dict['aspect_ratio']/cur_dict['aspect_ratio']  
+            center_dis = CAL_EUCLIDEAN_DISTANCE(pre_dict['center'],cur_dict['center'])
             
-            
-            for feature_tuple in feature_tuple_list:
-                two_area_ratio = rec_area/feature_tuple[0]
-                two_aspect_ratio = aspect/feature_tuple[1]
+            if self.mode == "Dbg":
+                print("Light Bar Two Aspect Ratio : ", two_aspect_ratio)
+                print("Light Bar Two Area Ratio : ",two_area_ratio)
+                print("Light Bar Center Dis : ",center_dis)
                 
-                center_dis = CAL_EUCLIDEAN_DISTANCE((x,y),feature_tuple[2])
-                
-                if self.mode == "Dbg":
-                    print("Light Bar Two Aspect Ratio : ", two_aspect_ratio)
-                    print("Light Bar Two Area Ratio : ",two_area_ratio)
-                    print("Light Bar Center Dis : ",center_dis)
-                        
-                if  INRANGE(two_area_ratio,self.filter_params.accept_two_area_ratio_range) \
-                and INRANGE(two_aspect_ratio,self.filter_params.accept_two_aspect_ratio_range) \
-                and INRANGE(center_dis,self.filter_params.accept_center_distance_range):
                     
-                    out_list.append((feature_tuple[3] , each_cont))
-            
-            feature_tuple_list.append((rec_area,aspect,(x,y),each_cont))
+            if  INRANGE(two_area_ratio,self.filter_params.accept_two_area_ratio_range) \
+            and INRANGE(two_aspect_ratio,self.filter_params.accept_two_aspect_ratio_range) \
+            and INRANGE(center_dis,self.filter_params.accept_center_distance_range):
+                
+                out_list.append((pre_dict['cont'],cur_dict['cont']))
+        
         
         if self.mode == 'Dbg':
             print(f'Filter Light Bar after two order : {len(out_list)}')
@@ -151,8 +147,10 @@ class Filter_of_lightbar(Filter_Base):
         
         self.config_window_name =window_name
         self.press_key_to_save = press_key_to_save
+        
         def for_trackbar(x):
             pass
+        
         cv2.namedWindow(window_name,cv2.WINDOW_FREERATIO)
         #cv2.createTrackbar('area_range_min',window_name,1,5000,for_trackbar)
         #cv2.createTrackbar('area_range_max',window_name,1,5000,for_trackbar)
