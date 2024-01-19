@@ -5,6 +5,8 @@ armor_color = 'red'
 tradition_config_path = './tmp_tradition_config'
 mode = 'Dbg'
 custom_isp_path = './tradition_config/red/custom_isp_params.yaml'
+pingpong_count = 0
+pingpong_count_2 = 0
 
 if __name__ == "__main__":
     
@@ -12,7 +14,7 @@ if __name__ == "__main__":
                            if_auto_exposure=False,
                            if_trigger_by_software=False,
                            if_use_last_params=False,
-                           pingpong_exposure=None,
+                           pingpong_exposure=[500,50000],
                            camera_mode=mode,
                            custom_isp_yaml_path=custom_isp_path,
                            armor_color=armor_color)
@@ -41,11 +43,12 @@ if __name__ == "__main__":
         while 1:
             t1 = time.perf_counter()
             
-            img_ori= ca.get_img()
+            img_ori,pingpong_count= ca.get_img()
+            img_exposure_2, pingpong_count_2 = ca.get_img()
             
             [center_list,roi_binary_list,big_rec_list],_ = tradition_detector.get_output(
                                             img_ori,
-                                            img_ori
+                                            img_bgr_exposure2=img_exposure_2
                                           )
             
             
