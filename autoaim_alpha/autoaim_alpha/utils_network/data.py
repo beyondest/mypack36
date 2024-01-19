@@ -24,7 +24,6 @@ from PIL import Image
 import PIL as pil
 from typing import Union,Optional
 import onnxruntime
-import h5py
 from ..img.tools import normalize
 
 def tp(*args):
@@ -292,92 +291,7 @@ class Data:
         proc_bar.close()
         print(f'dataset saved to {npz_path}')
         print('Notice: when you need to open it, please include your dataset defination in open code')
-    
-    @classmethod
-    def save_dataset_to_hdf5(cls,
-                             dataset:Dataset,
-                             hdf5_path:str):
-        print(f'ALL {len(dataset)} samples to save')
-        proc_bar = tqdm(total=len(dataset), desc="Saving to HDF5:")
-        for X,y in dataset:
-            X = np.asanyarray(X)
-            y = np.asanyarray(y) 
-            
-            X_shape = X.shape
-            y_shape = y.shape
-            X_dtype = X.dtype
-            y_dtype = y.dtype
-            break
-
-        with h5py.File(hdf5_path,'w') as hf:
-            X_group = hf.create_group('X')
-            y_group = hf.create_group('y')
-            X_group.attrs['shape'] = f'{X_shape}'
-            X_group.attrs['dtype'] = f'{X_dtype}'
-            y_group.attrs['shape'] = f'{y_shape}'
-            y_group.attrs['dtype'] = f'{y_dtype}'
-            hf.attrs['length'] = len(dataset)
-            
-            if X_shape ==() and y_shape == ():
-                for i,sample in enumerate(dataset):
-                    X,y = sample
-                    X = np.asanyarray(X).reshape(-1)
-                    y = np.asanyarray(y).reshape(-1)
-                    X_group.create_dataset(f'{i}',data=X)
-                    y_group.create_dataset(f'{i}',data=y)
-                    proc_bar.update(1)
-            elif X_shape == () and y_shape != ():
-                for i,sample in enumerate(dataset):
-                    X,y = sample
-                    X = np.asanyarray(X).reshape(-1)
-                    y = np.asanyarray(y)
-                    X_group.create_dataset(f'{i}',data=X)
-                    y_group.create_dataset(f'{i}',data=y)
-                    proc_bar.update(1)
-            elif X_shape != () and  y_shape == ():
-                for i,sample in enumerate(dataset):
-                    X,y = sample
-                    X = np.asanyarray(X)
-                    y = np.asanyarray(y).reshape(-1)
-                    X_group.create_dataset(f'{i}',data=X)
-                    y_group.create_dataset(f'{i}',data=y)
-                    proc_bar.update(1)
-            else:
-                for i,sample in enumerate(dataset):
-                    X,y = sample
-                    X = np.asanyarray(X)
-                    y = np.asanyarray(y)
-                    X_group.create_dataset(f'{i}',data=X)
-                    y_group.create_dataset(f'{i}',data=y)
-                    proc_bar.update(1)
-
-        proc_bar.close()
-        print(f"Dataset saved to HDF5 file {hdf5_path}.")
-        
-    @classmethod
-    def get_dataset_from_hdf5(cls,
-                             hdf5_path:str,
-                             open_mode:str = 'r')->Dataset:
-        
-        X_list = []
-        y_list = []
-        with h5py.File(hdf5_path,open_mode) as hf:
-            length = hf.attrs['length']
-            
-            print(f'All {length} samples to read')
-            proc_bar = tqdm(length,'Load hdf5 file:')
-
-            for i in range(length):
-                
-                X_list.append(hf['X'][f'{i}'][:])
-                y_list.append(hf['y'][f'{i}'][:])
-                proc_bar.update(1)
-            proc_bar.close()
-            print('Reading over')
-            
-        X = np.asanyarray(X_list)
-        y = np.asanyarray(y_list)
-        return TensorDataset(torch.from_numpy(X),torch.from_numpy(y))
+  
        
     @classmethod
     def get_dataset_from_npz(cls,
@@ -494,28 +408,7 @@ class Data:
 def get_subset(dataset:Dataset,scope:list = [0,500])->Dataset:
     
     return Subset(dataset,[i for i in range(scope[0],scope[1])])  
-         
-class dataset_hdf5(Dataset):
-    """Will reshape y to item
-
-    Args:
-        Dataset (_type_): _description_
-    """
-    def __init__(self,hdf5_path:str) -> None:
-        super().__init__()
-        
-        self.path = hdf5_path
-        with h5py.File(hdf5_path,'r') as hf:
-            self.length = hf.attrs['length']
-            
-    def __len__(self):
-        return self.length
-    
-    def __getitem__(self, index)->tuple:
-        with h5py.File(self.path,'r') as hf:
-            X = hf['X'][f'{index}'][:]
-            y = hf['y'][f'{index}'][:]
-        return torch.from_numpy(X),torch.from_numpy(y).item()
+ 
             
 class dataset_pkl(Dataset):
     def __init__(self,pkl_path:str) -> None:
