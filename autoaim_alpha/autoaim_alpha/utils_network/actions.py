@@ -456,10 +456,11 @@ class Trt_Engine:
     def __init__(self,
                  filename:str,
                  if_show_engine_info:bool = True,
-                 idx_to_max_batchsize:dict = {0:10,1:10},
+                 binding_idx_to_max_batchsize:dict = {0:10,1:10},
                  if_create_all_batch_adapted_context:bool = True
                  ) -> None:
-        """Config here if you wang more
+        """binding_idx_to_max_batchsize: {binding_index:max_batchsize,...}
+        Warning: binding_idx_to_max_batchsize must include all binding index of engine, or will raise error
 
         Args:
             filename (_type_): _description_
@@ -467,7 +468,6 @@ class Trt_Engine:
 
         if os.path.exists(filename) == False:
             raise FileNotFoundError(f"Tensorrt engine file not found: {filename}")
-        
         self.trt_logger = trt.Logger(trt.Logger.INFO)
         self.runtime = trt.Runtime(self.trt_logger)
         
@@ -476,6 +476,8 @@ class Trt_Engine:
             
         self.stream = cuda.Stream()
         self.num_bindings = self.engine.num_bindings
+        
+        assert len(binding_idx_to_max_batchsize) == len(self.num_bindings),"input binding_idx_to_max_batchsize must include all binding index of engine"
         
         if if_show_engine_info:
             node_info = self.get_node_info()
@@ -488,11 +490,11 @@ class Trt_Engine:
         
         if if_create_all_batch_adapted_context:
             
-            self._create_all_batch_adapted_context(idx_to_max_batchsize)
+            self._create_all_batch_adapted_context(binding_idx_to_max_batchsize)
         
         else:
             
-            self._create_single_batch_adapted_context(idx_to_max_batchsize)
+            self._create_single_batch_adapted_context(binding_idx_to_max_batchsize)
             
             
         
@@ -609,7 +611,7 @@ class Trt_Engine:
     
                 
 
-    def _create_all_batch_adapted_context(self,idx_to_max_batchsize:dict):
+    def _create_all_batch_adapted_context(self,binding_idx_to_max_batchsize:dict):
         """
         self.input_context_list: [binding0_context_list,binding1_context_list,..]
         binding0_context_list: [batchsize0_context,batchsize1_context,...]
@@ -631,12 +633,12 @@ class Trt_Engine:
             
             bindings = self.bindings_list_of_each_batchsize[9]
         """
-        for index in idx_to_max_batchsize:
+        for index in binding_idx_to_max_batchsize:
                 
             batch_adaptted_context_list = []
-            batch_adaptted_bindings = [[] for i in range(idx_to_max_batchsize[index])]
+            batch_adaptted_bindings = [[] for i in range(binding_idx_to_max_batchsize[index])]
             
-            for i in range(idx_to_max_batchsize[index]):
+            for i in range(binding_idx_to_max_batchsize[index]):
                 
                 batch_adaptted_context = self._create_batch_adapted_context(self.num_bindings[index],i+1)
                 batch_adaptted_context_list.append(batch_adaptted_context)
@@ -652,7 +654,7 @@ class Trt_Engine:
         self.bindings_list_of_each_batchsize = batch_adaptted_bindings
     
     
-    def _create_single_batch_adapted_context(self,idx_to_max_batchsize:dict):
+    def _create_single_batch_adapted_context(self,binding_idx_to_max_batchsize:dict):
         """
 
         e.g.: 
@@ -668,9 +670,9 @@ class Trt_Engine:
         
         self.bindings_list_of_each_batchsize = [[]]
         
-        for i in idx_to_max_batchsize:
+        for i in binding_idx_to_max_batchsize:
             
-            context = self._create_batch_adapted_context(i,idx_to_max_batchsize[i])
+            context = self._create_batch_adapted_context(i,binding_idx_to_max_batchsize[i])
             if self.engine.binding_is_input(self.num_bindings[i]):
                 self.input_list_of_each_batchsize.append([context])
             else:
