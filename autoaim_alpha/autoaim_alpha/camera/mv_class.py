@@ -179,6 +179,11 @@ class Mindvision_Camera(Custom_Context_Obj):
         else:
             return dst
 
+    def trigger(self):
+        if self.if_trigger_by_software:
+            mvsdk.CameraSoftTrigger(self.hcamera)
+        else:
+            lr1.warning('CAMERA : trigger only works when if_trigger_by_software is True')
 
 
 

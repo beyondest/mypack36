@@ -393,7 +393,7 @@ class Data:
                         input_names=input_names,                #input names list,its length depends on how many input your model have
                         output_names=output_names,              #output names list
                         training=torch.onnx.TrainingMode.EVAL,  #EVAL or TRAINING or Preserve(depends on if you specify model.eval or model.train)
-                        operator_export_type=torch.onnx.OperatorExportTypes.ONNX_ATEN_FALLBACK,   #ONNX or ONNX_FALLTROUGH or ONNX_ATEN_FALLBACK  or ONNX_ATEN, ATEN means array tensor library of Pytorch
+                        operator_export_type=torch.onnx.OperatorExportTypes.ONNX,   #ONNX or ONNX_FALLTROUGH or ONNX_ATEN_FALLBACK  or ONNX_ATEN, ATEN means array tensor library of Pytorch
                                                                                          # fallback to onnx or fallthrough to aten, use aten as default, aten better for torch, but onnx is more compat
                         opset_version=opt_version,                       #7<thix<17
                         do_constant_folding=True,               #True
