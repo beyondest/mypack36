@@ -507,7 +507,7 @@ class PIL_img_transform:
 
 
 
-def nomalize_for_onnx(img_or_imglist:Union[np.ndarray,list],
+def normalize_to_nparray(img_or_imglist:Union[np.ndarray,list],
                       dtype:type = np.float32)->Union[np.ndarray,None]:
     if img_or_imglist is None:
         return None

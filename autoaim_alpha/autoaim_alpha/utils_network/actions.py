@@ -7,11 +7,23 @@ import onnxruntime
 from typing import Union,Optional
 import torch.nn
 import torch.cuda
+       
+    
+
 
 from ..img.tools import cvshow,add_text
 from ..os_op.decorator import *
 from .data import *
+from ..os_op.basic import *
+try:
+    import tensorrt as trt
+    import pycuda.driver as cuda
+    import pycuda.autoinit
 
+except ImportError:
+    lr1.error("No tensorrt or pycuda, please install tensorrt and pycuda")
+    
+    
 def train_classification(   model:torch.nn.Module,
                             train_dataloader,
                             val_dataloader,
@@ -406,8 +418,271 @@ class Onnx_Engine:
 
 
 
+class Trt_Engine:
+    """ Attributes
+            engine: [binding0 ,binding1 ,...]
+            context_list: [context0{context,host_mem,device_mem},context1{context,host_mem,device_mem},...]
+            logger: trt.Logger
+            runtime: trt.Runtime
+            stream: cuda.Stream
+
+        Methods:
+            get_node_info: return node info of engine
+            create_context: create context for engine
+            run: run engine with input data
+            run_asyc: run engine with input data in async mode
+    """
+    class Batch_Adaptted_Context:
+        
+        def __init__(self) -> None:
+            self.context = None
+            self.host_mem = None
+            self.device_mem = None
+            self.batch_size = None
+            self.binding_index = None
+            self.binding_shape = None
+            self.dtype = None
+            
+        def rebinding(self,batch_size:int):
+            self.batch_size = batch_size
+            right_shape = (self.batch_size,*self.binding_shape[1:])
+            self.context.set_binding_shape(self.binding_index, right_shape)
+            size = trt.volume(right_shape) 
+            self.host_mem = cuda.pagelocked_empty(size, self.dtype)
+            self.device_mem = cuda.mem_alloc(self.host_mem.nbytes)
+            
+            
+
+    def __init__(self,
+                 filename:str,
+                 if_show_engine_info:bool = True,
+                 idx_to_max_batchsize:dict = {0:10,1:10},
+                 if_create_all_batch_adapted_context:bool = True
+                 ) -> None:
+        """Config here if you wang more
+
+        Args:
+            filename (_type_): _description_
+        """
+
+        if os.path.exists(filename) == False:
+            raise FileNotFoundError(f"Tensorrt engine file not found: {filename}")
+        
+        self.trt_logger = trt.Logger(trt.Logger.INFO)
+        self.runtime = trt.Runtime(self.trt_logger)
+        
+        with open(filename, 'rb') as f:
+            self.engine = self.runtime.deserialize_cuda_engine(f.read())
+            
+        self.stream = cuda.Stream()
+        self.num_bindings = self.engine.num_bindings
+        
+        if if_show_engine_info:
+            node_info = self.get_node_info()
+            print(f"Engine info: {node_info}")
+        
+        self.input_list_of_each_batchsize = []
+        self.output_list_of_each_batchsize = []
+        self.bindings_list_of_each_batchsize = []
+        self.if_create_all_batch_adapted_context = if_create_all_batch_adapted_context
+        
+        if if_create_all_batch_adapted_context:
+            
+            self._create_all_batch_adapted_context(idx_to_max_batchsize)
+        
+        else:
+            
+            self._create_single_batch_adapted_context(idx_to_max_batchsize)
+            
+            
         
         
 
+    def get_node_info(self):
+        
+        num_bindings = self.engine.num_bindings
+        binding_info = []
 
+        for i in range(num_bindings):
+            
+            binding = self.engine.binding_is_input(i)
+            shape = self.engine.get_binding_shape(i)
+            dtype = trt.nptype(self.engine.get_binding_dtype(i))
+            binding_info.append({
+                "name": f"Binding_{i}",
+                "input": binding,
+                "shape": shape,
+                "dtype": dtype,
+            })
 
+        return binding_info
+    
+    @timing(1)
+    def run(self,output_node_index_list:list,input_node_index_to_npvalue:dict)->list:
+        """@timing
+
+        Args:
+            output_node_index_list (list): _description_
+            input_node_index_to_npvalue (dict): _description_
+
+        Returns:
+            list: [output_node0_output,output_node1_output,...]
+        """
+        cur_batchsize = input_node_index_to_npvalue[0].shape[0]
+        
+        if self.if_create_all_batch_adapted_context:
+            # each batchsize has its own context, so we don't need to create new context
+            context_index = cur_batchsize-1
+            
+        else:
+            
+            context_index = 0
+            for index in input_node_index_to_npvalue:
+                self.input_list_of_each_batchsize[index][context_index].rebinding(cur_batchsize)
+                
+        output = self._run(output_node_index_list,input_node_index_to_npvalue,context_index)
+        return output
+           
+            
+    
+    def _run(self,output_node_index_list:list,input_node_index_to_npvalue:dict,context_index:int)->list:
+        
+        output  = []
+        for index in input_node_index_to_npvalue:
+        
+            np.copyto(self.input_list_of_each_batchsize[index][context_index].host_mem,
+                        input_node_index_to_npvalue[index].ravel())
+            
+            cuda.memcpy_htod_async(self.input_list_of_each_batchsize[index][context_index].device_mem,
+                                    self.input_list_of_each_batchsize[index][context_index].host_mem,
+                                    self.stream)
+                
+        self.input_list_of_each_batchsize[index][context_index].context.execute_async_v2(
+                                bindings=self.bindings_list_of_each_batchsize[context_index],
+                                stream_handle=self.stream.handle
+                                )
+        
+        for index in output_node_index_list:
+            
+            if self.if_create_all_batch_adapted_context:
+                cuda.memcpy_dtoh_async(self.output_list_of_each_batchsize[index][context_index].host_mem,
+                                    self.output_list_of_each_batchsize[index][context_index].device_mem,
+                                    self.stream)
+            
+        
+        self.stream.synchronize()
+        
+        for index in output_node_index_list:
+            output.append(self.output_list_of_each_batchsize[index][context_index].host_mem) 
+            
+        return output
+    
+    def _create_batch_adapted_context(self,binding_index:int,adaptted_batch_size:int):
+        
+        batch_adapted_context = self.Batch_Adaptted_Context()
+        binding_shape = self.engine.get_binding_shape(self.num_bindings[binding_index])
+        binding_dtype = self.engine.get_binding_dtype(self.num_bindings[binding_index])
+        
+        if binding_shape     == (-1,):
+            right_shape = (adaptted_batch_size, *binding_shape[1:])
+        else:
+            right_shape = binding_shape
+        
+        
+        
+        size = trt.volume(right_shape) 
+        dtype = trt.nptype(binding_dtype)
+        
+        
+        batch_adapted_context.context = self.engine.create_execution_context()
+        batch_adapted_context.context.set_binding_shape(self.num_bindings[binding_index], right_shape)
+        batch_adapted_context.host_mem = cuda.pagelocked_empty(size, dtype)
+        batch_adapted_context.device_mem = cuda.mem_alloc(batch_adapted_context.host_mem.nbytes)
+        batch_adapted_context.batch_size = adaptted_batch_size
+        batch_adapted_context.binding_index = self.num_bindings[binding_index]
+        batch_adapted_context.binding_shape = binding_shape
+        batch_adapted_context.dtype = dtype
+        
+        return batch_adapted_context
+    
+    
+    
+                
+
+    def _create_all_batch_adapted_context(self,idx_to_max_batchsize:dict):
+        """
+        self.input_context_list: [binding0_context_list,binding1_context_list,..]
+        binding0_context_list: [batchsize0_context,batchsize1_context,...]
+        
+        self.output_context_list: [binding0_context_list,binding1_context_list,..]
+        binding0_context_list: [batchsize0_context,batchsize1_context,..]
+         
+        self.bindings: [binding0_device_mem_list,binding1_device_mem_list,..]
+        binding0_device_mem_list: [batchsize0_device_mem,batchsize1_device_mem,...]
+        
+        
+        
+        e.g.: 
+            if batchsize = 9,\n
+            for i in self.input_list_of_each_batchsize:
+                i[9].host_mem ,i[9].device_mem,i[9].context
+            for i in self.output_list_of_each_batchsize:
+                i[9].host_mem ,i[9].device_mem,i[9].context
+            
+            bindings = self.bindings_list_of_each_batchsize[9]
+        """
+        for index in idx_to_max_batchsize:
+                
+            batch_adaptted_context_list = []
+            batch_adaptted_bindings = [[] for i in range(idx_to_max_batchsize[index])]
+            
+            for i in range(idx_to_max_batchsize[index]):
+                
+                batch_adaptted_context = self._create_batch_adapted_context(self.num_bindings[index],i+1)
+                batch_adaptted_context_list.append(batch_adaptted_context)
+                batch_adaptted_bindings[i].append(int(batch_adaptted_context.device_mem))
+                
+            
+            if self.engine.binding_is_input(self.num_bindings[index]):
+                
+                self.input_list_of_each_batchsize.append(batch_adaptted_context_list)
+            else:
+                self.output_list_of_each_batchsize.append(batch_adaptted_context_list)
+
+        self.bindings_list_of_each_batchsize = batch_adaptted_bindings
+    
+    
+    def _create_single_batch_adapted_context(self,idx_to_max_batchsize:dict):
+        """
+
+        e.g.: 
+        if batchsize = 9\n
+        for i in self.input_list_of_each_batchsize:
+            i[0].host_mem ,i[0].device_mem,i[0].context
+        for i in self.output_list_of_each_batchsize:
+            i[0].host_mem ,i[0].device_mem,i[0].context
+        
+        bindings = self.bindings_list_of_each_batchsize[0]
+        """
+        
+        
+        self.bindings_list_of_each_batchsize = [[]]
+        
+        for i in idx_to_max_batchsize:
+            
+            context = self._create_batch_adapted_context(i,idx_to_max_batchsize[i])
+            if self.engine.binding_is_input(self.num_bindings[i]):
+                self.input_list_of_each_batchsize.append([context])
+            else:
+                self.output_list_of_each_batchsize.append([context])
+            
+            self.bindings_list_of_each_batchsize[0].append([int(context.device_mem)])
+        
+        
+        
+            
+    
+      
+        
+    
+   

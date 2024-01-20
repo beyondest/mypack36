@@ -65,7 +65,7 @@ if 1:
     
     onnx_engine = Onnx_Engine(onnx_path2,True)
     
-    inp = nomalize_for_onnx([real_time_img],dtype=np.float32)
+    inp = normalize_to_nparray([real_time_img],dtype=np.float32)
     
     out_list,t = onnx_engine.run(output_nodes_name_list=None,
                     input_nodes_name_to_npvalue={input_name:inp})
