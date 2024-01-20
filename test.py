@@ -1,71 +1,48 @@
-import os
-import torch
-import time
-from torchvision import transforms,datasets
+
 import cv2
-import onnxruntime
-from typing import Union,Optional
-import torch.nn
-import torch.cuda
-try:
-    import tensorrt as trt
-    import pycuda.driver as cuda
-    import pycuda.autoinit
+from torchvision import transforms
+from autoaim_alpha.autoaim_alpha.utils_network.data import *
+from autoaim_alpha.autoaim_alpha.utils_network.actions import *    
 
-except ImportError:
-    lr1.error("No tensorrt or pycuda, please install tensorrt and pycuda")
+  
+
+
+img_path = './143d.png'
+trt_path = './tmp_net_config/long.trt'
+class_yaml = './tmp_net_config/class.yaml'    
+
     
+cur_batch_size = 2
+input_shape = (1,32,32)
+
+img = cv2.imread(img_path,cv2.IMREAD_GRAYSCALE)
+_,img = cv2.threshold(img,127,255,cv2.THRESH_BINARY)
+img = cv2.resize(img,(32,32))
 
 
+real_time_input = normalize_to_nparray([img,img],np.float32)
 
-class Trt_Engine:
+class_info = Data.get_file_info_from_yaml(class_yaml)
 
-    def __init__(self,
-                 filename:str,
-                 if_show_engine_info:bool = True
-                 
-                 ) -> None:
-        """Config here if you wang more
-
-        Args:
-            filename (_type_): _description_
-        """
-
-        if os.path.exists(filename) == False:
-            raise FileNotFoundError(f"Tensorrt engine file not found: {filename}")
-        
-        self.trt_logger = trt.Logger(trt.Logger.INFO)
-        self.runtime = trt.Runtime(self.trt_logger)
-        
-        with open(filename, 'rb') as f:
-            self.engine = self.runtime.deserialize_cuda_engine(f.read())
-
-        if if_show_engine_info:
-            node_info = self.get_node_info()
-            print(f"Engine info: {node_info}")
-        print(self.engine.max_batch_size)
-
-    def get_node_info(self):
-        num_bindings = self.engine.num_bindings
-        binding_info = []
-
-        for i in range(num_bindings):
-            
-            binding = self.engine.binding_is_input(i)
-            shape = self.engine.get_binding_shape(i)
-            dtype = trt.nptype(self.engine.get_binding_dtype(i))
-            binding_info.append({
-                "name": f"Binding_{i}",
-                "input": binding,
-                "shape": shape,
-                "dtype": dtype,
-            })
-
-        return binding_info
+Data.show_nplike_info([real_time_input])
 
 
+engine = Trt_Engine(trt_path,
+                    if_show_engine_info=True,
+                    binding_idx_to_max_batchsize={0:10,1:10},
+                    if_create_all_batch_adapted_context=False
+                    )
 
 
+out,t = engine.run([0],{0:real_time_input})
 
-a = Trt_Engine('./tmp_net_config/long.trt')
+logits = out[0].reshape(-1,len(class_info))
 
+print(logits)
+p_list,index_list =trans_logits_in_batch_to_result(logits)
+result_list = [class_info[i] for i in index_list]
+
+
+print(p_list,result_list)
+print('spent time:')
+print(t)

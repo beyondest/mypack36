@@ -442,11 +442,14 @@ class Trt_Engine:
             self.binding_index = None
             self.binding_shape = None
             self.dtype = None
+            self.if_input = None
             
         def rebinding(self,batch_size:int):
             self.batch_size = batch_size
             right_shape = (self.batch_size,*self.binding_shape[1:])
-            self.context.set_binding_shape(self.binding_index, right_shape)
+            
+            if self.if_input:
+                self.context.set_binding_shape(self.binding_index, right_shape)
             size = trt.volume(right_shape) 
             self.host_mem = cuda.pagelocked_empty(size, self.dtype)
             self.device_mem = cuda.mem_alloc(self.host_mem.nbytes)
@@ -475,9 +478,9 @@ class Trt_Engine:
             self.engine = self.runtime.deserialize_cuda_engine(f.read())
             
         self.stream = cuda.Stream()
-        self.num_bindings = self.engine.num_bindings
+        self.engine = self.engine
         
-        assert len(binding_idx_to_max_batchsize) == len(self.num_bindings),"input binding_idx_to_max_batchsize must include all binding index of engine"
+        assert len(binding_idx_to_max_batchsize) == len(self.engine),"input binding_idx_to_max_batchsize must include all binding index of engine"
         
         if if_show_engine_info:
             node_info = self.get_node_info()
@@ -511,7 +514,7 @@ class Trt_Engine:
             shape = self.engine.get_binding_shape(i)
             dtype = trt.nptype(self.engine.get_binding_dtype(i))
             binding_info.append({
-                "name": f"Binding_{i}",
+                "name": self.engine[i],
                 "input": binding,
                 "shape": shape,
                 "dtype": dtype,
@@ -541,6 +544,7 @@ class Trt_Engine:
             context_index = 0
             for index in input_node_index_to_npvalue:
                 self.input_list_of_each_batchsize[index][context_index].rebinding(cur_batchsize)
+                self.output_list_of_each_batchsize[index][context_index].rebinding(cur_batchsize)
                 
         output = self._run(output_node_index_list,input_node_index_to_npvalue,context_index)
         return output
@@ -550,6 +554,7 @@ class Trt_Engine:
     def _run(self,output_node_index_list:list,input_node_index_to_npvalue:dict,context_index:int)->list:
         
         output  = []
+
         for index in input_node_index_to_npvalue:
         
             np.copyto(self.input_list_of_each_batchsize[index][context_index].host_mem,
@@ -558,10 +563,10 @@ class Trt_Engine:
             cuda.memcpy_htod_async(self.input_list_of_each_batchsize[index][context_index].device_mem,
                                     self.input_list_of_each_batchsize[index][context_index].host_mem,
                                     self.stream)
-                
-        self.input_list_of_each_batchsize[index][context_index].context.execute_async_v2(
+        
+        self.input_list_of_each_batchsize[0][context_index].context.execute_async_v2(
                                 bindings=self.bindings_list_of_each_batchsize[context_index],
-                                stream_handle=self.stream.handle
+                                stream_handle = self.stream.handle
                                 )
         
         for index in output_node_index_list:
@@ -582,28 +587,33 @@ class Trt_Engine:
     def _create_batch_adapted_context(self,binding_index:int,adaptted_batch_size:int):
         
         batch_adapted_context = self.Batch_Adaptted_Context()
-        binding_shape = self.engine.get_binding_shape(self.num_bindings[binding_index])
-        binding_dtype = self.engine.get_binding_dtype(self.num_bindings[binding_index])
-        
-        if binding_shape     == (-1,):
+        binding_shape = self.engine.get_binding_shape(self.engine[binding_index])
+        binding_dtype = self.engine.get_binding_dtype(self.engine[binding_index])
+        if_input = True if self.engine.binding_is_input(self.engine[binding_index]) else False
+        if binding_shape[0] == -1:
             right_shape = (adaptted_batch_size, *binding_shape[1:])
         else:
             right_shape = binding_shape
         
-        
+        print(right_shape)
         
         size = trt.volume(right_shape) 
         dtype = trt.nptype(binding_dtype)
         
+        print('*************')
+        print(size,dtype)
         
-        batch_adapted_context.context = self.engine.create_execution_context()
-        batch_adapted_context.context.set_binding_shape(self.num_bindings[binding_index], right_shape)
+        if if_input:
+            batch_adapted_context.context = self.engine.create_execution_context()
+            batch_adapted_context.context.set_binding_shape(binding_index, right_shape)
+            
         batch_adapted_context.host_mem = cuda.pagelocked_empty(size, dtype)
         batch_adapted_context.device_mem = cuda.mem_alloc(batch_adapted_context.host_mem.nbytes)
         batch_adapted_context.batch_size = adaptted_batch_size
-        batch_adapted_context.binding_index = self.num_bindings[binding_index]
+        batch_adapted_context.binding_index = binding_index
         batch_adapted_context.binding_shape = binding_shape
         batch_adapted_context.dtype = dtype
+        batch_adapted_context.if_input = if_input 
         
         return batch_adapted_context
     
@@ -640,12 +650,12 @@ class Trt_Engine:
             
             for i in range(binding_idx_to_max_batchsize[index]):
                 
-                batch_adaptted_context = self._create_batch_adapted_context(self.num_bindings[index],i+1)
+                batch_adaptted_context = self._create_batch_adapted_context(index,i+1)
                 batch_adaptted_context_list.append(batch_adaptted_context)
                 batch_adaptted_bindings[i].append(int(batch_adaptted_context.device_mem))
                 
             
-            if self.engine.binding_is_input(self.num_bindings[index]):
+            if self.engine.binding_is_input(self.engine[index]):
                 
                 self.input_list_of_each_batchsize.append(batch_adaptted_context_list)
             else:
@@ -673,14 +683,15 @@ class Trt_Engine:
         for i in binding_idx_to_max_batchsize:
             
             context = self._create_batch_adapted_context(i,binding_idx_to_max_batchsize[i])
-            if self.engine.binding_is_input(self.num_bindings[i]):
+            if self.engine.binding_is_input(self.engine[i]):
                 self.input_list_of_each_batchsize.append([context])
             else:
                 self.output_list_of_each_batchsize.append([context])
             
-            self.bindings_list_of_each_batchsize[0].append([int(context.device_mem)])
+            self.bindings_list_of_each_batchsize[0].append(int(context.device_mem))
         
         
+       
         
             
     

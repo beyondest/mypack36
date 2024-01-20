@@ -8,14 +8,6 @@ from autoaim_alpha.autoaim_alpha.utils_network.actions import *
 
 
 
-def cv_trans(img):
-    img = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-    return img
-
-real_time_trans = transforms.Compose([
-    transforms.ToTensor()
-])
-
 
 class HostDeviceMem(object):
     def __init__(self,host_mem,device_mem) -> None:
@@ -94,6 +86,7 @@ def do_inference(context,
     Returns:
         list: [out1,out2,...]
     """
+   
     for inp in inputs:
         cuda.memcpy_htod_async(inp.device,inp.host,stream)
     context.execute_async_v2(bindings =bindings,
@@ -121,7 +114,7 @@ _,img = cv2.threshold(img,127,255,cv2.THRESH_BINARY)
 img = cv2.resize(img,(32,32))
 
 
-real_time_input = nomalize_for_onnx([img,img],np.float32)
+real_time_input = normalize_to_nparray([img,img],np.float32)
 
 
 Data.show_nplike_info([real_time_input])
@@ -136,7 +129,6 @@ engine = runtime.deserialize_cuda_engine(serialized_engine)
 context = engine.create_execution_context()
 t1 = time.perf_counter()
 
-print('hihihih',engine.get_binding_shape(engine['inputs']))
 
 
 context.set_binding_shape(0,(cur_batch_size,*input_shape))
