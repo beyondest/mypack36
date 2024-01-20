@@ -23,7 +23,7 @@ if __name__ == "__main__":
     
     
     ca.print_show_params()
-    ca.enable_trackbar_config(press_key_to_save='a')
+    #ca.enable_trackbar_config(press_key_to_save='a')
     
     
     tradition_detector = detector.Tradition_Detector(armor_color=armor_color,
@@ -33,13 +33,13 @@ if __name__ == "__main__":
                                                        
                                                        )
     
-    tradition_detector.enable_preprocess_config(press_key_to_save='s')
-    tradition_detector.filter1.enable_trackbar_config(press_key_to_save='d')
-    tradition_detector.filter2.enable_trackbar_config(press_key_to_save='f')
+    #tradition_detector.enable_preprocess_config(press_key_to_save='s')
+    #tradition_detector.filter1.enable_trackbar_config(press_key_to_save='d')
+    #tradition_detector.filter2.enable_trackbar_config(press_key_to_save='f')
     #tradition_detector.enable_save_roi('roi_binary')
     
     with Custome_Context('camera',ca):
-        
+        ca.trigger()
         while 1:
             t1 = time.perf_counter()
             
@@ -56,10 +56,10 @@ if __name__ == "__main__":
             cv2.imshow('ori',img_ori)
             print(fps)
             
-            ca.detect_trackbar_config()
-            tradition_detector.detect_trackbar_config()
-            tradition_detector.filter1.detect_trackbar_config()
-            tradition_detector.filter2.detect_trackbar_config()
+            #ca.detect_trackbar_config()
+            #tradition_detector.detect_trackbar_config()
+            #tradition_detector.filter1.detect_trackbar_config()
+            #tradition_detector.filter2.detect_trackbar_config()
             
 
             t2 = time.perf_counter()

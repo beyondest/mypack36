@@ -147,6 +147,7 @@ class Mindvision_Camera(Custom_Context_Obj):
         
         
         t1 = time.perf_counter()
+        
         prawdata,pframehead=mvsdk.CameraGetImageBuffer(self.hcamera,CAMERA_GRAB_IMG_WATI_TIME_MS)
         t2 = time.perf_counter()
         if self.pingpong_exposure is not None:
@@ -158,6 +159,7 @@ class Mindvision_Camera(Custom_Context_Obj):
             else:
                 mvsdk.CameraSetExposureTime(self.hcamera,self.pingpong_exposure[1])
         if self.if_trigger_by_software:
+            print('trigger')
             mvsdk.CameraSoftTrigger(self.hcamera)
             
         mvsdk.CameraImageProcess(self.hcamera,prawdata,self.pframebuffer_address,pframehead)
@@ -179,7 +181,11 @@ class Mindvision_Camera(Custom_Context_Obj):
         else:
             return dst
 
-
+    def trigger(self):
+        if self.if_trigger_by_software:
+            mvsdk.CameraSoftTrigger(self.hcamera)
+        else:
+            lr1.warning('CAMERA : trigger only works when if_trigger_by_software is True')
 
 
     def isp_config(self,

@@ -11,6 +11,8 @@ import torch.cuda
 from ..img.tools import cvshow,add_text
 from ..os_op.decorator import *
 from .data import *
+from ..os_op.basic import *
+
 
 def train_classification(   model:torch.nn.Module,
                             train_dataloader,
@@ -408,6 +410,57 @@ class Onnx_Engine:
 
         
         
+class Trt_Engine:
 
 
+    class HostDeviceMem(object):
+        def __init__(self,host_mem,device_mem) -> None:
+            self.host = host_mem
+            self.device = device_mem
+        def __str__(self) -> str:
+            return "Host : \n" + str(self.host) + "\nDevice : \n" + str(self.device)
+        
+        def __repr__(self) -> str:
+            return self.__str__()
+        
+
+    def __init__(self,
+                 trt_engine_path:str,
+                 
+                 ) -> None:
+        import tensorrt as trt
+        import pycuda.driver as cuda
+        import pycuda.autoinit
+        
+        with open(trt_engine_path,'rb') as f:
+            ser_engine = f.read()
+
+        self.logger = trt.Logger(trt.Logger.WARNING)
+        self.runtime = trt.Runtime(self.logger)
+        self.engine = self.runtime.deserialize_cuda_engine(ser_engine)
+        self.context = self.engine.create_execution_context()
+        self.stream = cuda.Stream()
+        
+        
+    def allocate_buffer(self,cur_batchsize:Union[int,None] = None):
+        
+        input_mem_list = []
+        output_mem_list = []
+        binding_list = []
+        for binding in self.engine:
+            
+            shape = self.engine.get_binding_shape(binding)
+            if shape[0] == -1 :
+                if cur_batchsize is None:
+                    lr1.error('UTILS_NETWORK : trt engine has dynamic batchsize node, you have to specify cur_batchsize')
+                shape[0] = cur_batchsize
+                                
+            
+        
+            
+    def run(self,inp:np.ndarray):
+        pass
+        
+    
+    
 
