@@ -13,8 +13,8 @@ def cv_trans(img:np.ndarray):
     #_,img = cv2.threshold(img,127,255,cv2.THRESH_BINARY)
     return img
 
-input_name = 'inputs'
-output_name = 'outputs'
+input_name = 'input'
+output_name = 'output'
 
 val_trans = transforms.Compose([
     transforms.ToTensor(),
@@ -37,7 +37,7 @@ onnx_path2 = './weights/11multi.onnx'
 
 
 test_path = 'roi_tmp.jpg'
-class_yaml_path = './guess.yaml'
+class_yaml_path = './tmp_net_config/class.yaml'
 
 
 model = QNet(11)
@@ -64,16 +64,22 @@ if 0:
 if 1:
     
     onnx_engine = Onnx_Engine(onnx_path2,True)
-    inp = nomalize_for_onnx([real_time_img],dtype=np.float32)
+    
+    inp = normalize_to_nparray([real_time_img],dtype=np.float32)
+    
     out_list,t = onnx_engine.run(output_nodes_name_list=None,
                     input_nodes_name_to_npvalue={input_name:inp})
     
     class_dict = Data.get_file_info_from_yaml(class_yaml_path)
+    print(out_list[0].shape)
     p,i = trans_logits_in_batch_to_result(out_list[0])
+    
     print(p,i)
     result_list = [class_dict[j] for j in i]
     print('probabilities:',p)
     print('results',result_list)
+    
+    print('onnx time:',t)
 
 
 

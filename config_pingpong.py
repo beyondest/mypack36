@@ -1,6 +1,7 @@
 from autoaim_alpha.autoaim_alpha.camera.mv_class import *
 from autoaim_alpha.autoaim_alpha.img import detector
 from autoaim_alpha.autoaim_alpha.img.tools import add_text
+
 armor_color = 'red'
 tradition_config_path = './tmp_tradition_config'
 mode = 'Dbg'

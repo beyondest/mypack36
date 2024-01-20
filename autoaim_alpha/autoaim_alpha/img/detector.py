@@ -583,7 +583,7 @@ class Net_Detector:
         
         if self.params.engine_type == 'ort':
             
-            inp = nomalize_for_onnx(input_list,dtype=self.input_dtype)
+            inp = normalize_to_nparray(input_list,dtype=self.input_dtype)
             output,ref_time =self.engine.run(output_nodes_name_list=None,
                             input_nodes_name_to_npvalue={self.onnx_inputname:inp})
             probabilities_list,index_list = trans_logits_in_batch_to_result(output[0])

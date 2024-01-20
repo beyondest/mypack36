@@ -188,6 +188,7 @@ class Mindvision_Camera(Custom_Context_Obj):
             lr1.warning('CAMERA : trigger only works when if_trigger_by_software is True')
 
 
+
     def isp_config(self,
                    exposure_time_us:Union[int,None] = None,
                    gamma:Union[int,None] = None,
