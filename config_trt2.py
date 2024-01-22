@@ -26,7 +26,7 @@ Data.show_nplike_info([real_time_input])
 
 
 engine = TRT_Engine_2(trt_path,
-                    idx_to_max_batchsize={0:10,1:10}
+                    max_batch_size=10
                     )
 
 
