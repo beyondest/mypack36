@@ -417,7 +417,7 @@ class Onnx_Engine:
 
 
 
-
+# Wrong TRT , dont use this
 class Trt_Engine:
     """ Attributes
             engine: [binding0 ,binding1 ,...]
@@ -468,7 +468,9 @@ class Trt_Engine:
         Args:
             filename (_type_): _description_
         """
-
+        
+        raise NotImplementedError("This class is not fully tested, and may not work correctly, please use Onnx_Engine instead")
+    
         if os.path.exists(filename) == False:
             raise FileNotFoundError(f"Tensorrt engine file not found: {filename}")
         self.trt_logger = trt.Logger(trt.Logger.VERBOSE)
@@ -712,7 +714,7 @@ class TRT_Engine_2:
         
     def __init__(self,
                  trt_path:str,
-                 max_batchsize:int) -> None:
+                 max_batchsize:int = 10) -> None:
         """Only support single input binding and single output binding
 
         Warning: idx_to_max_batchsize must include all binding index of engine, or will raise error\n

@@ -531,7 +531,7 @@ class Tradition_Detector:
 class Net_Detector:
     def __init__(self,
                  net_config_folder :str,
-                 mode:str = 'Dbg',
+                 mode:str = 'Dbg'
                  ) -> None:
         CHECK_INPUT_VALID(mode,'Dbg','Rel')
         
@@ -547,9 +547,16 @@ class Net_Detector:
             self.onnx_inputname = self.params.input_name
             self.onnx_outputname = self.params.output_name
 
-
+        elif self.params.engine_type == 'trt':
+            
+            self.input_dtype = np.float32 if self.params.input_dtype == 'float32' else np.float16
+            self.engine = TRT_Engine_2(self.model_path,
+                                       max_batchsize=MAX_INPUT_BATCHSIZE)
+        
+            
 
     def save_params_to_yaml(self,yaml_path:str = './tmp_net_params.yaml'):
+        
         self.params.save_params_to_yaml(yaml_path)
         
     
@@ -560,8 +567,15 @@ class Net_Detector:
         
         self.params.load_params_from_yaml(net_config_path)
         self.class_info = Data.get_file_info_from_yaml(class_path)
-        self.model_path = os.path.join(folder_path,'model.onnx')
         
+        if self.params.engine_type == 'ort':
+            self.model_path = os.path.join(folder_path,'model.onnx')
+        
+        elif self.params.engine_type == 'trt':
+            self.model_path = os.path.join(folder_path,'model.trt')
+        
+        else: 
+            raise ValueError(f'Engine Type Error {self.params.engine_type}, only support ort and trt')
         
     @timing(1)
     def get_output(self,
@@ -581,9 +595,12 @@ class Net_Detector:
         if len(input_list) == 0 :
             return [None,None]
         
+        
+        inp = normalize_to_nparray(input_list,dtype=self.input_dtype)
+        
         if self.params.engine_type == 'ort':
             
-            inp = normalize_to_nparray(input_list,dtype=self.input_dtype)
+           
             output,ref_time =self.engine.run(output_nodes_name_list=None,
                             input_nodes_name_to_npvalue={self.onnx_inputname:inp})
             probabilities_list,index_list = trans_logits_in_batch_to_result(output[0])
@@ -593,8 +610,20 @@ class Net_Detector:
                 print(f'Refence Time: {ref_time:.5f}')
                 
             return [probabilities_list,result_list]
-        else:
-            raise TypeError('Engine Type Error')
+        
+        
+        elif self.params.engine_type == 'trt':
+            
+            output,ref_time = self.engine.run({0:inp})
+            probabilities_list,index_list = trans_logits_in_batch_to_result(output[0])
+            result_list = [self.class_info[index] for index in index_list]
+            
+            if self.mode == 'Dbg':
+                print(f'Refence Time: {ref_time:.5f}')
+                
+            return [probabilities_list,result_list]
+            
+            
         
         
     

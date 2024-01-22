@@ -50,10 +50,11 @@ class Node_Img_find_targeter(Node,Custom_Context_Obj):
         if mode == 'Dbg':
             self.armor_detector.visualize(img,fps=self.fps)
         
-        #self.get_logger().info(f"find target time:{find_time}s, fps:{self.fps:.2f}")
-        #self.get_logger().info(f"result:{result}")
-    
-    
+      
+        self.get_logger().info(f"find target time:{find_time}s, fps:{self.fps:.2f}")
+        self.get_logger().info(f"result:{result}")
+
+        
     def sub_callback(self,data):
         
         img = self.cv_bridge.imgmsg_to_cv2(data,camera_output_format)
