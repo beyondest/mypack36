@@ -4,7 +4,6 @@ from torchvision import transforms
 from autoaim_alpha.autoaim_alpha.utils_network.data import *
 from autoaim_alpha.autoaim_alpha.utils_network.actions import *    
 
-  
 
 
 img_path = './143d.png'
@@ -30,7 +29,7 @@ Data.show_nplike_info([real_time_input])
 engine = Trt_Engine(trt_path,
                     if_show_engine_info=True,
                     binding_idx_to_max_batchsize={0:10,1:10},
-                    if_create_all_batch_adapted_context=False
+                    if_create_all_batch_adapted_context=True
                     )
 
 
@@ -46,3 +45,4 @@ result_list = [class_info[i] for i in index_list]
 print(p_list,result_list)
 print('spent time:')
 print(t)
+

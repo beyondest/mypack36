@@ -32,7 +32,7 @@ def allocate_buffers(engine,max_batch_size:int = 16,if_show:bool = True):
     inputs = []
     outputs = []
     bindings = []
-    stream = cuda.Stream()
+    stream = 0
     
     for binding in engine:
         
@@ -123,12 +123,12 @@ Data.show_nplike_info([real_time_input])
 with open(trt_path,'rb') as f:
     serialized_engine = f.read()
 
-logger = trt.Logger(trt.Logger.WARNING)
+logger = trt.Logger(trt.Logger.VERBOSE)
 runtime = trt.Runtime(logger)
 engine = runtime.deserialize_cuda_engine(serialized_engine)
 context = engine.create_execution_context()
 t1 = time.perf_counter()
-
+stream0 = cuda.Stream()
 
 
 context.set_binding_shape(0,(cur_batch_size,*input_shape))
@@ -144,7 +144,7 @@ result = do_inference(context,
                       bindings,
                       inputs,
                       outputs,
-                      stream)
+                      stream0)
 
 logits = result[0].reshape(cur_batch_size,-1)
 

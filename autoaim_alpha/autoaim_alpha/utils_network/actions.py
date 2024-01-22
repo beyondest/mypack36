@@ -471,7 +471,7 @@ class Trt_Engine:
 
         if os.path.exists(filename) == False:
             raise FileNotFoundError(f"Tensorrt engine file not found: {filename}")
-        self.trt_logger = trt.Logger(trt.Logger.INFO)
+        self.trt_logger = trt.Logger(trt.Logger.VERBOSE)
         self.runtime = trt.Runtime(self.trt_logger)
         
         with open(filename, 'rb') as f:
@@ -496,7 +496,7 @@ class Trt_Engine:
             self._create_all_batch_adapted_context(binding_idx_to_max_batchsize)
         
         else:
-            
+
             self._create_single_batch_adapted_context(binding_idx_to_max_batchsize)
             
             
