@@ -684,7 +684,107 @@ class Trt_Engine:
         
             
     
-      
+
+class TRT_Engine_2:
+    class HostDeviceMem(object):
+    
+        def __init__(self, host_mem, device_mem):
+            self.host = host_mem
+            self.device = device_mem
+
+        def __str__(self):
+            return "Host:\n" + str(self.host) + "\nDevice:\n" + str(self.device)
+
+        def __repr__(self):
+            return self.__str__()
+
+        
+    def __init__(self,
+                 trt_path:str,
+                 idx_to_max_batchsize:dict = {0:10,1:10}) -> None:
+        """
+
+        Warning: idx_to_max_batchsize must include all binding index of engine, or will raise error\n
+                        include input and output binding index of engine\n
+        """
+        assert os.path.exists(trt_path), f"Tensorrt engine file not found: {trt_path}"
+        assert len(idx_to_max_batchsize) == len(self.engine), f"input idx_to_max_batchsize must include all binding index of engine"
+        
+        self.logger = trt.Logger(trt.Logger.INFO)
+        self.runtime = trt.Runtime(self.logger)
+        self.stream = cuda.Stream()
+        with open(trt_path, 'rb') as f:
+            self.engine = self.runtime.deserialize_cuda_engine(f.read())
+            
+        self.context = self.engine.create_execution_context()
+        
+        self.inputs = []
+        self.outputs = []
+        self.bindings = []
+        self.idx_to_max_batchsize = idx_to_max_batchsize
+        
+        self.allocate_buffers()
+        
+        
+        
+    def allocate_buffers(self):
+        
+        for index in self.idx_to_max_batchsize:
+            
+            shape = self.engine.get_binding_shape(self.engine[index])
+            
+            if shape[0] == -1:
+                shape = (self.idx_to_max_batchsize[index], *shape[1:])
+            
+            
+            dtype = trt.nptype(self.engine.get_binding_dtype(self.engine[index]))
+            size = trt.volume(shape) 
+            
+            host_mem = cuda.pagelocked_empty(size, dtype)
+            device_mem = cuda.mem_alloc(host_mem.nbytes)
+            self.bindings.append(int(device_mem))
+            
+            if self.engine.binding_is_input(self.engine[index]):
+                self.inputs.append(self.HostDeviceMem(host_mem, device_mem))
+            else:
+                self.outputs.append(self.HostDeviceMem(host_mem, device_mem))
+            
+                
+    @timing(1)  
+    def run(self,idx_to_npvalue:dict)->list:
+        """@timing
+
+        Warning: idx_to_npvalue must be {binding_index:np_array,...}
+                 e.g.:
+                    {0:np.array([1,2,3,4,5,6,7,8,9,10]),
+                     3:np.array([1,2,3,4,5,6,7,8,9,10])}\n
+                     and 0,3 must be INPUT binding index of engine
+
+        Returns:
+            list: [output_node0_output,output_node1_output,..]
+        """
+        
+        for index in idx_to_npvalue:
+            batchsize = idx_to_npvalue[index].shape[0]
+            self.context.set_binding_shape(index, (batchsize, *self.engine.get_binding_shape(self.engine[index])[1:]))
+        
+            np.copyto(self.inputs[index].host, idx_to_npvalue[index].ravel())
+            cuda.memcpy_htod_async(self.inputs[index].device, self.inputs[index].host, self.stream)
+        
+        self.context.execute_async_v2(bindings=self.bindings, stream_handle=self.stream.handle)
+        
+        for index in range(len(self.outputs)):
+            cuda.memcpy_dtoh_async(self.outputs[index].host, self.outputs[index].device, self.stream)
+        
+        self.stream.synchronize()
+        
+        out_list = [out.host for out in self.outputs]
+        
+        return out_list
+    
+    
+    
+        
         
     
    

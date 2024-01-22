@@ -25,14 +25,12 @@ class_info = Data.get_file_info_from_yaml(class_yaml)
 Data.show_nplike_info([real_time_input])
 
 
-engine = Trt_Engine(trt_path,
-                    if_show_engine_info=True,
-                    idx_to_max_batchsize={0:10,1:10},
-                    if_create_all_batch_adapted_context=False
+engine = TRT_Engine_2(trt_path,
+                    idx_to_max_batchsize={0:10,1:10}
                     )
 
 
-out,t = engine.run([0],{0:real_time_input})
+out,t = engine.run({0:real_time_input})
 
 logits = out[0].reshape(-1,len(class_info))
 
