@@ -26,7 +26,7 @@ Data.show_nplike_info([real_time_input])
 
 
 engine = TRT_Engine_2(trt_path,
-                    max_batch_size=10
+                    max_batchsize=5
                     )
                 
 out,t = engine.run({0:real_time_input})

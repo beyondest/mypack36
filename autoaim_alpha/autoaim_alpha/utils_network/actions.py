@@ -439,7 +439,7 @@ class Trt_Engine:
             self.host_mem = None
             self.device_mem = None
             self.batch_size = None
-            self.binding_index = None
+            self.input_index = None
             self.binding_shape = None
             self.dtype = None
             self.if_input = None
@@ -449,7 +449,7 @@ class Trt_Engine:
             right_shape = (self.batch_size,*self.binding_shape[1:])
             
             if self.if_input:
-                self.context.set_binding_shape(self.binding_index, right_shape)
+                self.context.set_binding_shape(self.input_index, right_shape)
             size = trt.volume(right_shape) 
             self.host_mem = cuda.pagelocked_empty(size, self.dtype)
             self.device_mem = cuda.mem_alloc(self.host_mem.nbytes)
@@ -462,7 +462,7 @@ class Trt_Engine:
                  binding_idx_to_max_batchsize:dict = {0:10,1:10},
                  if_create_all_batch_adapted_context:bool = True
                  ) -> None:
-        """binding_idx_to_max_batchsize: {binding_index:max_batchsize,...}
+        """binding_idx_to_max_batchsize: {input_index:max_batchsize,...}
         Warning: binding_idx_to_max_batchsize must include all binding index of engine, or will raise error
 
         Args:
@@ -584,12 +584,12 @@ class Trt_Engine:
             
         return output
     
-    def _create_batch_adapted_context(self,binding_index:int,adaptted_batch_size:int):
+    def _create_batch_adapted_context(self,input_index:int,adaptted_batch_size:int):
         
         batch_adapted_context = self.Batch_Adaptted_Context()
-        binding_shape = self.engine.get_binding_shape(self.engine[binding_index])
-        binding_dtype = self.engine.get_binding_dtype(self.engine[binding_index])
-        if_input = True if self.engine.binding_is_input(self.engine[binding_index]) else False
+        binding_shape = self.engine.get_binding_shape(self.engine[input_index])
+        binding_dtype = self.engine.get_binding_dtype(self.engine[input_index])
+        if_input = True if self.engine.binding_is_input(self.engine[input_index]) else False
         if binding_shape[0] == -1:
             right_shape = (adaptted_batch_size, *binding_shape[1:])
         else:
@@ -605,12 +605,12 @@ class Trt_Engine:
         
         if if_input:
             batch_adapted_context.context = self.engine.create_execution_context()
-            batch_adapted_context.context.set_binding_shape(binding_index, right_shape)
+            batch_adapted_context.context.set_binding_shape(input_index, right_shape)
             
         batch_adapted_context.host_mem = cuda.pagelocked_empty(size, dtype)
         batch_adapted_context.device_mem = cuda.mem_alloc(batch_adapted_context.host_mem.nbytes)
         batch_adapted_context.batch_size = adaptted_batch_size
-        batch_adapted_context.binding_index = binding_index
+        batch_adapted_context.input_index = input_index
         batch_adapted_context.binding_shape = binding_shape
         batch_adapted_context.dtype = dtype
         batch_adapted_context.if_input = if_input 
@@ -731,13 +731,17 @@ class TRT_Engine_2:
         self.inputs = []
         self.outputs = []
         self.bindings = []
+        self.input_idx_to_binding_idx = {}
+        allocate_time = 0
         
         for i in range(max_batchsize):
-            inputs,outputs,bindings = self.allocate_buffers(i+1)
+            [inputs,outputs,bindings],at = self.allocate_buffers(i+1)
+            allocate_time += at
             self.inputs.append(inputs)
             self.outputs.append(outputs)
             self.bindings.append(bindings)
         
+        print('allocate time : ',allocate_time)
         
         
     @timing(1)
@@ -748,13 +752,13 @@ class TRT_Engine_2:
             batchsize (int, optional): _description_. Defaults to 1.
 
         Returns:
-            tuple: (inputs,outputs,bindings)
+            list: [inputs,outputs,bindings]
         """
         inputs = []
         outputs = []
         bindings = []
         
-        for index in self.idx_to_max_batchsize:
+        for index in range(len(self.engine)):
             
             shape = self.engine.get_binding_shape(self.engine[index])
             
@@ -771,16 +775,18 @@ class TRT_Engine_2:
             
             if self.engine.binding_is_input(self.engine[index]):
                 inputs.append(self.HostDeviceMem(host_mem, device_mem))
+                self.input_idx_to_binding_idx.update({len(inputs)-1 : index})
+                
             else:
                 outputs.append(self.HostDeviceMem(host_mem, device_mem))
-                
-        return inputs,outputs,bindings
+        
+        return [inputs,outputs,bindings]
                 
     @timing(1)  
-    def run(self,idx_to_npvalue:dict)->list:
+    def run(self,input_idx_o_npvalue:dict)->list:
         """@timing
-
-        Warning: idx_to_npvalue must be {binding_index:np_array,...}
+        Only support all nodes are in same batchsize
+        Warning: input_idx_o_npvalue must be {input_index:np_array,...}
                  e.g.:
                     {0:np.array([1,2,3,4,5,6,7,8,9,10]),
                      3:np.array([1,2,3,4,5,6,7,8,9,10])}\n
@@ -790,26 +796,27 @@ class TRT_Engine_2:
             list: [output_node0_output,output_node1_output,..]
         """
         outlist = []
-        out_batchsize_list = []
-        for binding_index in idx_to_npvalue:
-            
-            batchsize = idx_to_npvalue[binding_index].shape[0]
-            out_batchsize_list.append(batchsize)
-            self.context.set_binding_shape(binding_index, (batchsize, *self.engine.get_binding_shape(self.engine[binding_index])[1:]))
         
-            np.copyto(self.inputs[batchsize-1][binding_index].host, idx_to_npvalue[binding_index].ravel())
-            cuda.memcpy_htod_async(self.inputs[batchsize-1][binding_index].device, self.inputs[batchsize-1][binding_index].host, self.stream)
+        batchsize = input_idx_o_npvalue[0].shape[0]
+        
+        for input_index in input_idx_o_npvalue:
+            
+            
+            self.context.set_binding_shape(self.input_idx_to_binding_idx[input_index], (batchsize, *self.engine.get_binding_shape(self.engine[input_index])[1:]))
+        
+            np.copyto(self.inputs[batchsize-1][input_index].host, input_idx_o_npvalue[input_index].ravel())
+            cuda.memcpy_htod_async(self.inputs[batchsize-1][input_index].device, self.inputs[batchsize-1][input_index].host, self.stream)
+        
         
         self.context.execute_async_v2(bindings=self.bindings[batchsize-1], stream_handle=self.stream.handle)
         
-        for batchsize in out_batchsize_list:
-            for output_index in self.outputs[batchsize-1]:
-                cuda.memcpy_dtoh_async(self.output[batchsize-1][output_index].host, self.outputs[batchsize-1][output_index].device, self.stream)
+        for output_index in range(len(self.outputs[batchsize-1])):
+            cuda.memcpy_dtoh_async(self.outputs[batchsize-1][output_index].host, self.outputs[batchsize-1][output_index].device, self.stream)
 
         self.stream.synchronize()
-        for batchsize in out_batchsize_list:
-            for output_index in self.outputs[batchsize-1]:
-                outlist.append(self.outputs[batchsize-1][output_index].host)
+        
+        for output_index in  range(len(self.outputs[batchsize-1])):
+            outlist.append(self.outputs[batchsize-1][output_index].host)
        
         return outlist
     
