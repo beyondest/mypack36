@@ -26,17 +26,15 @@ Data.show_nplike_info([real_time_input])
 
 
 engine = TRT_Engine_2(trt_path,
-                    idx_to_max_batchsize={0:10,1:10}
+                    idx_to_max_batchsize={0:2,1:2}
                     )
-
-
+                
 out,t = engine.run({0:real_time_input})
 
 logits = out[0].reshape(-1,len(class_info))
 
 p_list,index_list =trans_logits_in_batch_to_result(logits)
 result_list = [class_info[i] for i in index_list]
-
 
 print(p_list,result_list)
 print('spent time:')

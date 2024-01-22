@@ -719,19 +719,20 @@ class TRT_Engine_2:
                         include input and output binding index of engine\n
         """
         assert os.path.exists(trt_path), f"Tensorrt engine file not found: {trt_path}"
-        assert len(idx_to_max_batchsize) == len(self.engine), f"input idx_to_max_batchsize must include all binding index of engine"
         
         self.logger = trt.Logger(trt.Logger.INFO)
         self.runtime = trt.Runtime(self.logger)
         self.stream = cuda.Stream()
         with open(trt_path, 'rb') as f:
             self.engine = self.runtime.deserialize_cuda_engine(f.read())
-            
+        
         self.context = self.engine.create_execution_context()
         
         self.inputs = []
         self.outputs = []
         self.bindings = []
+        
+        assert len(idx_to_max_batchsize) == len(self.engine), f"input idx_to_max_batchsize must include all binding index of engine"
         self.idx_to_max_batchsize = idx_to_max_batchsize
         
         self.allocate_buffers()
