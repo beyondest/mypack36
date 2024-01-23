@@ -21,7 +21,7 @@ try:
     import pycuda.autoinit
 
 except ImportError:
-    lr1.error("No tensorrt or pycuda, please install tensorrt and pycuda")
+    lr1.warning("No tensorrt or pycuda, please install tensorrt and pycuda")
     
     
 def train_classification(   model:torch.nn.Module,

@@ -33,7 +33,7 @@ class Node_Webcam_MV(Node,Custom_Context_Obj):
         self.mv = Mindvision_Camera(
                                     output_format = camera_output_format,
                                     camera_mode=mode,
-                                    custom_isp_yaml_path=isp_params_path,
+                                    camera_config_folder = camera_config_folder,
                                     armor_color=armor_color
                                     )
         

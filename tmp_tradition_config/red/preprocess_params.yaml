@@ -3,13 +3,13 @@ blue_armor_yuv_range:
 - 145
 - 255
 close_kernel_size:
-- 40
-- 20
+- 4
+- 2
 gaussianblur_kernel_size:
 - 3
 - 3
 gaussianblur_x: 1
-red_armor_binary_roi_threshold: 3
+red_armor_binary_roi_threshold: 7
 red_armor_yuv_range:
 - 164
 - 255

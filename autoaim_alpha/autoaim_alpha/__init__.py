@@ -21,7 +21,7 @@ node_webcam_mv = 'node_webcam_mv'
 node_webcam_mv_frequency = 30
 
 
-isp_params_path = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/tradition_config/red/custom_isp_params.yaml'
+camera_config_folder = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/camera_config' 
 tradition_config_folder = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/tmp_tradition_config'
 
 

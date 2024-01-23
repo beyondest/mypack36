@@ -1,9 +1,9 @@
 blue_armor_binary_roi_threshold: 4
 blue_armor_yuv_range:
-- 145
+- 137
 - 255
 close_kernel_size:
-- 2
+- 4
 - 2
 gaussianblur_kernel_size:
 - 3

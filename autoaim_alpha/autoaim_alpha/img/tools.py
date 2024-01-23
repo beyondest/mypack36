@@ -4,6 +4,7 @@ import numpy as np
 from typing import Union,Optional
 import math
 
+
 def order_rec_points(rec_points:np.ndarray)->np.ndarray:
         '''
         return rec_points in order:\n
@@ -336,3 +337,83 @@ def normalize(ori_img:np.ndarray,scope:tuple=(0,1))->np.ndarray:
         return None
     '''(y-a)/(b-a)=(x-xmin)/(xmax-xmin)'''
     return (ori_img-ori_img.min())/(ori_img.max()-ori_img.min())*(scope[1]-scope[0])+scope[0]
+
+
+
+def findpeaks(data, spacing=1, limit=None):
+    """Finds peaks in `data` which are of `spacing` width and >=`limit`.
+    :param data: values
+    :param spacing: minimum spacing to the next peak (should be 1 or more)
+    :param limit: peaks should have value greater or equal
+    :return:
+    """
+    len = data.size
+    x = np.zeros(len + 2 * spacing)
+    x[:spacing] = data[0] - 1.e-6
+    x[-spacing:] = data[-1] - 1.e-6
+    x[spacing:spacing + len] = data
+    peak_candidate = np.zeros(len)
+    peak_candidate[:] = True
+    for s in range(spacing):
+        start = spacing - s - 1
+        h_b = x[start: start + len]  # before
+        start = spacing
+        h_c = x[start: start + len]  # central
+        start = spacing + s + 1
+        h_a = x[start: start + len]  # after
+        peak_candidate = np.logical_and(peak_candidate, np.logical_and(h_c > h_b, h_c > h_a))
+
+    ind = np.argwhere(peak_candidate)
+    ind = ind.reshape(ind.size)
+    if limit is not None:
+        ind = ind[data[ind] > limit]
+    return ind
+
+
+
+
+def get_threshold(img_for_show_in_hist:np.ndarray,
+                  max_value:int=255,
+                  mode:str='Dbg'):
+    
+    if mode == 'Dbg':
+        d = cv2.resize(img_for_show_in_hist,(300,300))
+        cv2.imshow('cal hist img',d)
+        cv2.waitKey(1)
+        
+    x_axis_length  = 255
+    
+    hist = cv2.calcHist([img_for_show_in_hist],[0],None,[x_axis_length],[0,255])
+    
+    hist = normalize(hist,scope=(0,max_value))
+    hist = np.round(hist).astype(np.int)
+    thresh = np.argmax(hist)
+    
+    if hist[thresh+1].item() < 30:
+        thresh +=1
+    
+    if mode == 'Dbg':
+        canvas_wid = 300
+        canvas_hei = 300
+        canvas = np.ones((canvas_wid,canvas_hei,3),dtype=np.uint8) * 255
+        non_zero_max_index = np.argwhere(hist > 0).max()
+        step = canvas_wid // non_zero_max_index
+        for i in range(non_zero_max_index):
+            if i == non_zero_max_index - 1:
+                break
+            x0,y0,x1,y1 =  round(i*step), round(canvas_hei - hist[i].item()) ,round((i+1)*step) , round(canvas_hei - hist[i+1].item()) 
+            cv2.line(canvas,(x0,y0),(x1,y1), color=(255,0,0))
+            add_text(canvas,'',i,(x0,y0),color=(0,0,255),scale_size=0.8)
+            
+        add_text(canvas,'thresh',thresh,scale_size=0.8)
+        
+        cv2.imshow('hist',canvas)
+        cv2.waitKey(1)
+
+        print('hist is ',hist)
+        print('thresh:',thresh)
+    
+    
+    
+    return thresh
+

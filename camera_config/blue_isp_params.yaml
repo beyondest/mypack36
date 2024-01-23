@@ -1,13 +1,13 @@
-analog_gain: 5
+analog_gain: 64
 analog_gain_x: 2
-b_gain: 72
+b_gain: 91
 contrast: 100
-exposure_time_us: 506
+exposure_time_us: 448
 fps: 2
 g_gain: 126
 gamma: 100
 grab_resolution_hei: 512
 grab_resolution_wid: 640
-r_gain: 214
+r_gain: 223
 saturation: 100
 sharpness: 0

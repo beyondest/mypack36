@@ -60,14 +60,12 @@ class Mindvision_Camera(Custom_Context_Obj):
                  if_use_last_params:bool = False,
                  pingpong_exposure:Union[None,list] = None,
                  camera_mode:str = 'Dbg''Rel',
-                 custom_isp_yaml_path:Union[str,None] = None,
+                 camera_config_folder:str = './camera_configs',
                  armor_color:str = 'red'
                  ) -> None:
         
         CHECK_INPUT_VALID(camera_run_platform,'linux','windows')
         CHECK_INPUT_VALID(camera_mode,'Dbg','Rel')
-        if custom_isp_yaml_path is not None:
-            CHECK_INPUT_VALID(os.path.exists(custom_isp_yaml_path),True)
         CHECK_INPUT_VALID(armor_color,'red','blue')
         
         
@@ -86,13 +84,15 @@ class Mindvision_Camera(Custom_Context_Obj):
         self.camera_run_platform = camera_run_platform
         self.pingpong_count = 0
         self.armor_color = armor_color
+        self.if_save_img = False
+        self.random_config_count = 0
         
         self.hcamera = self._init()
         
         if not self.if_use_last_params:
-            if custom_isp_yaml_path is not None:
-                self.load_params_from_yaml(custom_isp_yaml_path)
-                lr1.info(f'CAMERA : Load params success from {custom_isp_yaml_path}')
+            if camera_config_folder is not None:
+                self.load_params_from_folder(camera_config_folder)
+                lr1.info(f'CAMERA : Load params success from {camera_config_folder}')
                 
             else:
                 lr1.warning(f'CAMERA : Will not use yaml params nor last params, but use default params')
@@ -114,11 +114,31 @@ class Mindvision_Camera(Custom_Context_Obj):
         self.save_yaml_path = save_yaml_path
         self._visualize_isp_config_by_isp_params()        
         
-    
-    
-    def load_params_from_yaml(self,yaml_path:str):
+    def enable_save_img(self,save_folder:str = './tmp_imgs',img_name_suffix:str = 'jpg',save_img_interval:int = 10):
         
-        self.isp_params.load_params_from_yaml(yaml_path)
+        if not os.path.exists(save_folder):
+            os.makedirs(save_folder)
+        self.save_folder = save_folder
+        self.img_name_suffix = img_name_suffix
+        self.if_save_img = True
+        self.save_img_count = 0
+        self.save_img_interval = save_img_interval
+        
+    
+    def load_params_from_folder(self,folder_path:str):
+        if not os.path.exists(folder_path):
+            raise FileNotFoundError(f'CAMERA : {folder_path} not exists')
+        
+        if self.armor_color == 'blue':
+            custom_isp_yaml_path = os.path.join(folder_path,'blue_isp_params.yaml')
+        else:
+            custom_isp_yaml_path = os.path.join(folder_path,'red_isp_params.yaml')
+            
+        if not os.path.exists(custom_isp_yaml_path):
+            raise FileNotFoundError(f'CAMERA : {custom_isp_yaml_path} not exists')
+        
+        self.isp_params.load_params_from_yaml(custom_isp_yaml_path)
+        
         self._isp_config_by_isp_params()
     
     def save_all_params_to_file(self,file_name:str):
@@ -175,6 +195,12 @@ class Mindvision_Camera(Custom_Context_Obj):
         if self.camera_mode == 'Dbg':
             print('get buffer:',t2-t1)
             print('isp:',t3 - t2)
+        
+        if dst is not None and self.if_save_img:
+            self.save_img_count += 1
+            if self.save_img_count % self.save_img_interval == 0:
+                img_name = f'{self.save_folder}/{time.time()}.{self.img_name_suffix}'
+                cv2.imwrite(img_name,dst)
         
         if self.pingpong_exposure is not None:
             return dst,self.pingpong_count
@@ -291,7 +317,13 @@ class Mindvision_Camera(Custom_Context_Obj):
             self.save_custom_params_to_yaml(self.save_yaml_path)
     
 
-    
+    def random_config(self,interval:int = 100):
+        self.random_config_count += 1
+        if self.random_config_count % interval == 0:
+            
+            self.isp_params.exposure_time_us = np.random.randint(ISP_PARAMS_SCOPE_LIST[0][0],ISP_PARAMS_SCOPE_LIST[0][1])
+            self._isp_config_by_isp_params()
+        
     def _init(self):
         
         if self.device_id is None:
@@ -383,7 +415,8 @@ class Mindvision_Camera(Custom_Context_Obj):
         reflect_dict = vars(self.isp_params)
         for key in reflect_dict.keys():
             reflect_dict[key] = cv2.getTrackbarPos(key,self.isp_window_name)
-
+            
+            
     def _isp_config_by_isp_params(self):
         
         

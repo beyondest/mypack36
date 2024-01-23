@@ -281,10 +281,22 @@ class Tradition_Detector:
                 self.roi_single = roi_binary_list[0]
         
         if self.if_enable_save_roi:
+            
             if roi_binary_list:
-                for i in range(len(roi_binary_list)):
-                    save_path = os.path.join(self.save_folder,self.armor_color,f'{time.time()}.jpg')
-                    cv2.imwrite(save_path,roi_binary_list[i])
+                self.save_img_count +=1
+                if self.save_img_count % self.save_interval == 0:
+                    for i in range(len(roi_binary_list)):
+                        
+                        t = time.time()
+                        save_path_bin = os.path.join(self.save_folder,'bin',f'{t}.jpg')
+                        save_path_transform = os.path.join(self.save_folder,'transform',f'{t}.jpg')
+                        
+                        
+                        cv2.imwrite(save_path_bin,roi_binary_list[i])
+                        trans = cv2.cvtColor(roi_transform_list[i],cv2.COLOR_BGR2GRAY)
+                        cv2.imwrite(save_path_transform,trans)
+                    
+                    
             
         return [center_list,roi_binary_list,big_rec_list]
     
@@ -384,14 +396,20 @@ class Tradition_Detector:
                 cv2.imwrite('roi_tmp.png',self.roi_single)
         
             
-    def enable_save_roi(self,save_folder:str = 'roi_binary'):
+    def enable_save_roi(self,save_folder:str = 'roi_binary',img_suffix:str = 'jpg',save_interval:int = 10):
+       
         if not os.path.exists(save_folder):
             os.makedirs(save_folder)
-        if not os.path.exists(os.path.join(save_folder,self.armor_color)):
-            os.makedirs(os.path.join(save_folder,self.armor_color))
+        if not os.path.exists(os.path.join(save_folder,'bin')):
+            os.makedirs(os.path.join(save_folder,'bin'))
+        if not os.path.exists(os.path.join(save_folder,'transform')):
+            os.makedirs(os.path.join(save_folder,'transform'))
+        
         self.save_folder = save_folder
         self.if_enable_save_roi = True
-        
+        self.img_suffix = img_suffix
+        self.save_interval = save_interval
+        self.save_img_count = 0
     
     @timing(1)
     def _find_big_rec(self,img_single:np.ndarray,img_bgr:Union[np.ndarray,None] = None)->Union[list,None]:
@@ -446,6 +464,7 @@ class Tradition_Detector:
                               self.Tradition_Params.red_armor_yuv_range[0],
                               self.Tradition_Params.red_armor_yuv_range[1]
                               )
+        
         else:
             out = cv2.inRange(u.reshape(img_bgr.shape[0],img_bgr.shape[1],1),
                               self.Tradition_Params.blue_armor_yuv_range[0],
@@ -474,15 +493,13 @@ class Tradition_Detector:
 
         roi_single_list=[]
         for i in roi_transform_list:
+            
+            
             dst=cv2.cvtColor(i,cv2.COLOR_BGR2GRAY)
-
-            dst=gray_stretch(dst,self.Tradition_Params.strech_max)
-
-            if self.armor_color=='red':
-                ret,dst=cv2.threshold(dst,self.Tradition_Params.red_armor_binary_roi_threshold,255,cv2.THRESH_BINARY)
-            else:    
-                ret,dst=cv2.threshold(dst,self.Tradition_Params.blue_armor_binary_roi_threshold,255,cv2.THRESH_BINARY)
-                
+            dst=gray_stretch(dst,255)
+            exclude_light_bar_region = dst[:,5:27]
+            thresh = get_threshold(exclude_light_bar_region,255,mode=self.mode)
+            ret,dst =cv2.threshold(dst,thresh,255,cv2.THRESH_BINARY) 
             roi_single_list.append(dst)
         
         return roi_single_list
@@ -514,7 +531,10 @@ class Tradition_Detector:
             dst_points=np.array([[0,0],[wid-1,0],[wid-1,hei-1],[0,hei-1]],dtype=np.float32)
             M=cv2.getPerspectiveTransform(i.astype(np.float32),dst_points)
             dst=cv2.warpPerspective(img_bgr_exposure2,M,(int(wid),int(hei)),flags=cv2.INTER_LINEAR)
+            
+            
             dst = cv2.resize(dst,self.roi_single_shape)
+            
             roi_transform_list.append(dst)
         
         return roi_transform_list

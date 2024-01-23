@@ -1,0 +1,4 @@
+train_path: /content/PetImages/train
+val_path: /content/PetImages/val
+weights_save_path: /content/gdrive/MyDrive/out/pet/weights
+log_save_folder: /content/gdrive/MyDrive/out/pet/log2
