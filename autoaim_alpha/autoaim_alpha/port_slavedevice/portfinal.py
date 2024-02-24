@@ -23,6 +23,8 @@ class Param:
         self.pdata = pos_data()
         self.sdata = syn_data()
         self.draw_circle_counts = 0
+        
+
 def read_and_show(ser:serial.Serial,
                   pdata:pos_data):
     read_ori = read_data(ser)
@@ -59,6 +61,7 @@ def write_and_show(ser:serial.Serial,
     a_towrite = adata.convert_action_data_to_bytes(if_part_crc=False)
     
     s_towrite = sdata.convert_syn_data_to_bytes(if_part_crc=False)
+    
     if s_or_a == 's':
         
         #print(f"Writing: {s_towrite}")
@@ -179,9 +182,9 @@ if __name__ == "__main__":
     
     task1.start()
     task2.start()
+    
     while 1:
         global_param.img = cac.grab_img(hcamera,pframe_buffer_addr)
-        
         
         center_list = imo.find_armor_beta(global_param.img)
         if AUTO_AIM:

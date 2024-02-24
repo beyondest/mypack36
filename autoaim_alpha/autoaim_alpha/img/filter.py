@@ -108,29 +108,29 @@ class Filter_of_lightbar(Filter_Base):
         if len(tmp_list)  == 0:
             return None
         
-        tmp_list = sorted(tmp_list,key=lambda x:x['center'][0],reverse=True)
+        #tmp_list = sorted(tmp_list,key=lambda x:x['center'][0],reverse=True)
 
         # Two order filter
-        for i in range(1,len(tmp_list)):
-            
-            pre_dict = tmp_list[i-1]
-            cur_dict = tmp_list[i]
-            
-            two_area_ratio = pre_dict['rec_area']/cur_dict['rec_area']
-            two_aspect_ratio = pre_dict['aspect_ratio']/cur_dict['aspect_ratio']  
-            center_dis = CAL_EUCLIDEAN_DISTANCE(pre_dict['center'],cur_dict['center'])
-            
-            if self.mode == "Dbg":
-                print("Light Bar Two Aspect Ratio : ", two_aspect_ratio)
-                print("Light Bar Two Area Ratio : ",two_area_ratio)
-                print("Light Bar Center Dis : ",center_dis)
+        for i in range(0,len(tmp_list)):
+            for j in range(i,len(tmp_list)):
+                pre_dict = tmp_list[i]
+                cur_dict = tmp_list[j]
                 
+                two_area_ratio = pre_dict['rec_area']/cur_dict['rec_area']
+                two_aspect_ratio = pre_dict['aspect_ratio']/cur_dict['aspect_ratio']  
+                center_dis = CAL_EUCLIDEAN_DISTANCE(pre_dict['center'],cur_dict['center'])
+                
+                if self.mode == "Dbg":
+                    print("Light Bar Two Aspect Ratio : ", two_aspect_ratio)
+                    print("Light Bar Two Area Ratio : ",two_area_ratio)
+                    print("Light Bar Center Dis : ",center_dis)
                     
-            if  INRANGE(two_area_ratio,self.filter_params.accept_two_area_ratio_range) \
-            and INRANGE(two_aspect_ratio,self.filter_params.accept_two_aspect_ratio_range) \
-            and INRANGE(center_dis,self.filter_params.accept_center_distance_range):
-                
-                out_list.append((pre_dict['cont'],cur_dict['cont']))
+                        
+                if  INRANGE(two_area_ratio,self.filter_params.accept_two_area_ratio_range) \
+                and INRANGE(two_aspect_ratio,self.filter_params.accept_two_aspect_ratio_range) \
+                and INRANGE(center_dis,self.filter_params.accept_center_distance_range):
+                    
+                    out_list.append((pre_dict['cont'],cur_dict['cont']))
         
         
         if self.mode == 'Dbg':

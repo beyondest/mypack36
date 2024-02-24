@@ -1,6 +1,5 @@
 
-import sys
-sys.path.append('..')
+
 from typing import Any, Union,Optional
 from .global_logger import *
 from ..utils_network import data

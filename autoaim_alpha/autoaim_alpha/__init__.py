@@ -1,8 +1,13 @@
 import rclpy.qos
-
+from sensor_msgs.msg import Image
+from tf2_msgs.msg import TFMessage
 from . import os_op
 from .os_op.basic import *
 from .utils_network.data import Data
+
+
+
+
 
 
 general_config = Data.get_file_info_from_yaml('/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/general_config.yaml')
@@ -11,13 +16,15 @@ armor_color = general_config['armor_color']
 
                                                     # Public Params
 
-topic_img_raw = 'img_raw'
-qos_profile_img_raw = 3
+
+topic_img_raw = {'name': 'img_raw', 'type': Image, 'qos_profile':3}
+
+topic_pos = {'name': 'pos', 'type': TFMessage, 'qos_profile':10}
 
 
                                                     # Node webcam mv
                                                     
-node_webcam_mv = 'node_webcam_mv'
+node_webcam_mv_name = 'node_webcam_mv'
 node_webcam_mv_frequency = 30
 
 
@@ -32,14 +39,25 @@ camera_output_format = 'bgr8'
 
 
                                                 
-                                                    # Node detector
+                                                    # Node detect
 
 
-node_detector = 'node_detector'
-node_detector_mv_frequency = None
+node_detect_name = 'node_detect'
 
 tradition_config_folder = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/tmp_tradition_config'
 net_config_folder = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/tmp_net_config'
+
+
+                                                    # Node publish
+                                                    
+                                                    
+node_publish_name = 'node_publish'
+node_publish_frequency = 10
+
+
+                                                    # Node subscribe
+                                                    
+node_subscribe_name = 'node_subscribe'
 
 
 

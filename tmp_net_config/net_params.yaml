@@ -3,8 +3,8 @@ engine_type: ort
 input_dtype: float32
 input_name: inputs
 input_size:
-- 32
-- 32
+- 64
+- 64
 output_name: outputs
 
 

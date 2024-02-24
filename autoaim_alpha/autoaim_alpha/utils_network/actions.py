@@ -154,7 +154,7 @@ def train_classification(   model:torch.nn.Module,
 def predict_classification(model:torch.nn.Module,
                            trans,
                            img_or_folder_path:str,
-                           weights_path:str,
+                           weights_path:Union[str,None],
                            class_yaml_path:str,
                            fmt:str = 'jpg',
                            custom_trans_cv:None = None,
@@ -174,10 +174,16 @@ def predict_classification(model:torch.nn.Module,
         if_cvt_rgb (bool, optional): _description_. Defaults to True.
     """
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    idx_to_class = Data.get_file_info_from_yaml(class_yaml_path)
-    model.load_state_dict(torch.load(weights_path,map_location=device))
+    if class_yaml_path is not None:
+        
+        idx_to_class = Data.get_file_info_from_yaml(class_yaml_path)
+    
+    if weights_path is not None:
+        model.load_state_dict(torch.load(weights_path,map_location=device))
     model.eval()
     suffix = os.path.splitext(img_or_folder_path)[-1]
+    
+    
     if suffix != '':
         mode = 'single_img'
     else:
@@ -203,7 +209,11 @@ def predict_classification(model:torch.nn.Module,
             probablility_tensor = torch.nn.functional.softmax(logits,dim=1)[0]
             probablility = torch.max(probablility_tensor).item()
             predict_class_id = torch.argmax(probablility_tensor).item()
-            predict_class = idx_to_class[predict_class_id]
+            if class_yaml_path is not None:
+                predict_class = idx_to_class[predict_class_id]
+            else:
+                predict_class = f'class_{predict_class_id}'
+            
             if if_print:
                 print(f'{img_or_folder_path} is {predict_class}, with probablity {probablility:.2f}    spend_time: {t:6f}')
 

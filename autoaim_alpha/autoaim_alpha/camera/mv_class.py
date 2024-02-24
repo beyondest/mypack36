@@ -86,7 +86,7 @@ class Mindvision_Camera(Custom_Context_Obj):
         self.armor_color = armor_color
         self.if_save_img = False
         self.random_config_count = 0
-        
+        self.if_enble_save_video = False
         self.hcamera = self._init()
         
         if not self.if_use_last_params:
@@ -114,7 +114,12 @@ class Mindvision_Camera(Custom_Context_Obj):
         self.save_yaml_path = save_yaml_path
         self._visualize_isp_config_by_isp_params()        
         
-    def enable_save_img(self,save_folder:str = './tmp_imgs',img_name_suffix:str = 'jpg',save_img_interval:int = 10):
+    def enable_save_img(self,
+                        save_folder:str = './tmp_imgs',
+                        img_name_suffix:str = 'jpg',
+                        save_img_interval:Union[int,None] = 10,
+                        press_key_to_save:Union[str,None] = None
+                        ):
         
         if not os.path.exists(save_folder):
             os.makedirs(save_folder)
@@ -122,8 +127,21 @@ class Mindvision_Camera(Custom_Context_Obj):
         self.img_name_suffix = img_name_suffix
         self.if_save_img = True
         self.save_img_count = 0
-        self.save_img_interval = save_img_interval
         
+        if save_img_interval is not None and press_key_to_save is not None:
+            lr1.warning(f'CAMERA : save img both by interval and key press')
+            
+        self.save_img_interval = save_img_interval
+        self.img_press_key_to_save = press_key_to_save
+    
+    
+    def enbable_save_video(self,save_video_path:str = './tmp_video.avi',fps:int = 30):
+        
+        self.if_enble_save_video = True
+        self.video_writer = cv2.VideoWriter()
+        fourcc = self.video_writer.fourcc(*'mp4v')
+        self.video_writer.open(save_video_path,fourcc,fps,(self.isp_params.grab_resolution_wid,self.isp_params.grab_resolution_hei))
+    
     
     def load_params_from_folder(self,folder_path:str):
         if not os.path.exists(folder_path):
@@ -197,11 +215,20 @@ class Mindvision_Camera(Custom_Context_Obj):
             print('isp:',t3 - t2)
         
         if dst is not None and self.if_save_img:
-            self.save_img_count += 1
-            if self.save_img_count % self.save_img_interval == 0:
-                img_name = f'{self.save_folder}/{time.time()}.{self.img_name_suffix}'
-                cv2.imwrite(img_name,dst)
-        
+            if self.save_img_interval is not None:
+                self.save_img_count += 1
+                if self.save_img_count % self.save_img_interval == 0:
+                    img_name = f'{self.save_folder}/{time.time()}.{self.img_name_suffix}'
+                    cv2.imwrite(img_name,dst)
+                    
+            if self.img_press_key_to_save is not None:
+                if cv2.waitKey(1) & 0xFF == ord(self.img_press_key_to_save):
+                    img_name = f'{self.save_folder}/{time.time()}.{self.img_name_suffix}'
+                    cv2.imwrite(img_name,dst)
+                    
+        if dst is not None and self.if_enble_save_video:
+            self.video_writer.write(dst)
+            
         if self.pingpong_exposure is not None:
             return dst,self.pingpong_count
         else:
@@ -461,8 +488,12 @@ class Mindvision_Camera(Custom_Context_Obj):
         mvsdk.CameraUnInit(self.hcamera)
         mvsdk.CameraAlignFree(self.pframebuffer_address)
         lr1.info(f"CAMERA : camera id {self.device_id} , nickname {self.device_nickname} closed")
-    
-    
+        
+        if self.if_enble_save_video:
+            self.video_writer.release()
+            lr1.info(f"CAMERA :  video released")
+            
+            
     def _errorhandler(self,exc_value):
         print(exc_value)
         print(type(exc_value))

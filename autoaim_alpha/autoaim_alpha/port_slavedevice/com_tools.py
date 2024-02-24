@@ -2,8 +2,9 @@ import struct
 import numpy as np
 import crcmod
 from crcmod.predefined import mkPredefinedCrcFun
-
 import serial
+
+
 # Integer types:
 # 'b': signed byte (1 byte)                 -128-127
 # 'B': unsigned byte (1 byte)               0-255
@@ -45,6 +46,7 @@ def send_data(ser:serial.Serial,msg:bytes)->None:
         
         ser.write(msg)
         
+
 def read_data(ser:serial.Serial,byte_len:int = 16)->bytes:
     """read data from port:ser
 
@@ -78,8 +80,8 @@ def port_open(port_abs_path:str = '/dev/ttyUSB0',
         dsrdtr=None,\n
         inter_byte_timeout=0.1,\n
         exclusive=None # 1 is ok for one time long communication\n
-   
     """
+    
     ser = serial.Serial(
         port=port_abs_path,
         baudrate=baudrate,
@@ -94,6 +96,7 @@ def port_open(port_abs_path:str = '/dev/ttyUSB0',
         exclusive=None, # 1 is ok for one time long communication, but None is not, I dont know why!!!!
         timeout=1
     ) 
+    
     return ser
     
 
@@ -117,8 +120,6 @@ def convert_to_data(byte_tuple:tuple):
 
 
 
-    
-
 def cal_crc(data:bytes)->int:
     """HOW TO GET RIGHT CRC:\n
        Input byte order same as memory in stm32\n, e.g.:0x44434241---b'ABCD'
@@ -140,8 +141,6 @@ def cal_crc(data:bytes)->int:
     crc_value = mkPredefinedCrcFun('crc-32-mpeg')(data)
     
     return crc_value
-
-
 
 
 
@@ -168,7 +167,6 @@ Syn data: receive | SOF : 'S'
 Once get present time from upper, stm32 will set RTC module to SYNCHRONIZE with upper pc
 Once time gap between stm32 and upper is bigger than threshold , stm32 correct RTC or set bias by software code
 
-
 Pos data: send | SOF : 'P'
 By info from 6020 , send present yaw and pitch to upper
 By info from RTC , send present time minute and second and second_frac4*10000 to upper
@@ -177,9 +175,7 @@ By info from RTC , send present time minute and second and second_frac4*10000 to
 stm32 send format:
 
 
-
 '''
-
 
 class data_list:
     def __init__(self) -> None:
@@ -238,8 +234,6 @@ class data_list:
         out[8:12] = out[8:12][::-1]
         return bytes(out)
 
-
-
 class syn_data(data_list):
     def __init__(self,
                  SOF:str = 'S',
@@ -257,9 +251,6 @@ class syn_data(data_list):
         """
         super().__init__()
         
-         
-
-
         self.SOF = SOF
         self.present_minute = present_minute
         self.present_second = present_second
@@ -316,6 +307,7 @@ class syn_data(data_list):
     
 
 class action_data(data_list):
+    
     def __init__(self,
                  SOF:str = 'A',
                  fire_times:int=1,
@@ -326,8 +318,6 @@ class action_data(data_list):
                  target_second_frac_10000:int=1234,
                  setting_voltage_or_rpm:int=60) -> None:
         super().__init__()
-        
-        
         
         self.label_list = ['SOF','ftimes','tarpitch','taryaw','tarmin','tarsec','tarsecfrac','svolrpm']
         self.SOF = SOF
@@ -348,8 +338,6 @@ class action_data(data_list):
                      self.setting_voltage_or_rpm]
         self.len = len(self.list)
         
-        
-
     def convert_action_data_to_bytes(self,if_crc:bool = True, if_revin_crc:bool = True , if_part_crc:bool = True)->bytes:
         """Calculate crc here if needed
         NO.0 (SOF:char , '<c')                             |     ('A')                      |byte0      bytes 1     total 1
@@ -403,6 +391,7 @@ class action_data(data_list):
 
 
 class pos_data(data_list):
+    
     def __init__(self,
                  SOF:str = 'P',
                  stm_minute:int = 20,
@@ -434,7 +423,6 @@ class pos_data(data_list):
         self.len = len(self.list)
         
         
-
 
     def convert_pos_bytes_to_data(self,ser_read:bytes,if_crc:bool = True,if_crc_rev:bool = True,if_part_crc:bool = True)->bool:
         """Convert what STM32 send, Save data to self.list
@@ -514,9 +502,6 @@ class pos_data(data_list):
         
         return error
 
-    
-
-    
     
 
 #first get reversed of data, then use crc-32-mpeg will get right crc same as stm32 

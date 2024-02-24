@@ -22,6 +22,8 @@ setup(
         'console_scripts': [
             'node_webcam_mv = autoaim_alpha.node_webcam_mv:main',
             'node_detect = autoaim_alpha.node_detect:main',
+            'node_publish = autoaim_alpha.node_publish:main',
+            'node_subscribe = autoaim_alpha.node_subscribe:main'
         ],
     },
 )

@@ -10,11 +10,9 @@ from ..camera.mv_class import *
 from ..utils_network.mymodel import *
 from ..utils_network.actions import *
 from .filter import *
-
+from .depth_estimator import *
 
 ########################################### Params ##############################################################
-
-
 
 class Tradition_Params(Params):
     def __init__(self) -> None:
@@ -40,7 +38,8 @@ class Net_Params(Params):
         self.input_dtype = NET_INPUT_DTYPE
         self.confidence = NET_CONFIDENCE
         
-           
+        
+
 
 ############################################### Armor Detector #################################################################3    
         
@@ -52,14 +51,15 @@ class Armor_Detector:
                  mode:str = 'Dbg',
                  tradition_config_folder :Union[str,None] = None,
                  net_config_folder :Union[str,None] = None,
-                 save_roi_key:str = 'c'
+                 save_roi_key:str = 'c',
+                 depth_estimator_config_folder:Union[str,None] = None
                  ) -> None:
         
         CHECK_INPUT_VALID(armor_color,'red','blue')
         CHECK_INPUT_VALID(mode,'Dbg','Rel')
         self.mode = mode
         
-        self._reset_result()
+        self.reset_result()
         
         
         self.net_detector = Net_Detector(
@@ -74,8 +74,12 @@ class Armor_Detector:
                                                        tradition_config_folder_path=tradition_config_folder,
                                                        roi_single_shape=self.net_detector.params.input_size,
                                                        save_roi_key=save_roi_key
-                                                       )    
-        
+                                                       )  
+          
+        self.depth_estimator = Depth_Estimator(depth_estimator_config_folder,
+                                                mode=mode,
+                                                method_name='pnp'
+                                                )
         
     @timing(1)
     def get_result(self,img_bgr:np.ndarray,img_bgr_exposure2:np.ndarray)->Union[list,None]:
@@ -83,12 +87,13 @@ class Armor_Detector:
         Returns:
             Union[list,None]:
             
-                if success,return a list of dict,each dict contains 'big_rec','center','result','probability'\n
+                if success,return a list of dict,each dict contains 'big_rec','center','result','probability', 'pos'\n
                 if fail,return None
                 
         """
-        self._reset_result()
+        self.reset_result()
         self._tradition_part(img_bgr,img_bgr_exposure2)
+        
         self._net_part()
         self._filter_part()
         
@@ -98,7 +103,7 @@ class Armor_Detector:
                 pass
             else:
                 pass
-                    
+            
             return self.final_result_list
         else:
             return None
@@ -115,7 +120,7 @@ class Armor_Detector:
             for i in self.final_result_list:
                 draw_big_rec_list([i['big_rec']],img,color=(0,255,0))
                 add_text(   img,
-                            f'{i["probability"]:.2f}',
+                            f'{i["probability"]:.2f} pos:{i["pos"]}',
                             value=i['result'],
                             pos=(round(i['center'][0]+20),round(i['center'][1])+20),
                             color=(0,0,255),
@@ -125,9 +130,8 @@ class Armor_Detector:
         cv2.waitKey(1)
     
             
-                
-                
-    def _reset_result(self):
+         
+    def reset_result(self):
         self.center_list = None
         self.roi_single_list = None
         self.big_rec_list = None
@@ -162,6 +166,7 @@ class Armor_Detector:
             return None
         
         
+        
         tmp_list,net_time = self.net_detector.get_output(self.roi_single_list)  
         self.probability_list,self.result_list = tmp_list   
            
@@ -172,7 +177,11 @@ class Armor_Detector:
             else:
                 print('Net Find Nothing')    
             
+            
     def _filter_part(self):
+        """apply confidence filter and depth estimation to get final result
+        """
+        
         self.final_result_list = []
         
         if self.probability_list is not None:
@@ -180,20 +189,30 @@ class Armor_Detector:
             for i in range(len(self.probability_list)):
                 if self.probability_list[i] > self.net_detector.params.confidence:
                     
-                    each_result = {'big_rec':self.big_rec_list[i],'center':self.center_list[i],'result':self.result_list[i],'probability':self.probability_list[i]}
+                    obj_class = 'small' if self.result_list[i] in ['2x','3x','4x','5x','basex','sentry'] else 'big'
+                    output = self.depth_estimator.get_result((self.big_rec_list[i],obj_class))
+                    if output is None:
+                        pos = [0,0,0]
+                        rvec = np.zeros(3)
+                    else:
+                        pos,rvec = output
+                        
+                    each_result = {'pos':pos,'center':self.center_list[i],'result':self.result_list[i],'probability':self.probability_list[i],'big_rec':self.big_rec_list[i],'rvec':rvec}
                     
                     self.final_result_list.append(each_result)
             
             if len(self.final_result_list)>0:
                 self.success_flag = True
-                sorted(self.final_result_list,key=lambda x:x['probability'],reverse=True)
+                
+                #sorted(self.final_result_list,key=lambda x:x['probability'],reverse=True)
                 
             else:
                 self.success_flag = False
         else:
             self.success_flag = False
             
-            
+   
+       
             
 ############################################## tradition Detector#######################################################    
     
@@ -218,7 +237,7 @@ class Tradition_Detector:
         self.armor_color = armor_color
         self.roi_single_shape =roi_single_shape
         self.if_enable_save_roi = False
-        
+        self.if_enable_preprocess_config = False
                 
         if tradition_config_folder_path is not None:
             self.load_params_from_folder(tradition_config_folder_path)
@@ -342,6 +361,7 @@ class Tradition_Detector:
     def enable_preprocess_config(self,window_name:str = 'preprocess_config',press_key_to_save:str = 's'):
         self.config_window_name =window_name
         self.press_key_to_save = press_key_to_save
+        self.if_enable_preprocess_config = True
         def for_trackbar(x):
             pass
         cv2.namedWindow(window_name,cv2.WINDOW_FREERATIO)
@@ -497,8 +517,18 @@ class Tradition_Detector:
             
             dst=cv2.cvtColor(i,cv2.COLOR_BGR2GRAY)
             dst=gray_stretch(dst,255)
-            exclude_light_bar_region = dst[:,5:27]
+            
+            if self.roi_single_shape ==[32,32]:
+                exclude_light_bar_region = dst[:,5:27]
+            elif self.roi_single_shape ==[64,64]:
+                exclude_light_bar_region = dst[:,10:54]
+            else:
+                raise ValueError(f'roi_single_shape Error {self.roi_single_shape}, only support (32,32) and (64,64)')
+
             thresh = get_threshold(exclude_light_bar_region,255,mode=self.mode)
+            if self.if_enable_preprocess_config:
+                thresh = self.Tradition_Params.blue_armor_binary_roi_threshold if self.armor_color == 'blue' else self.Tradition_Params.red_armor_binary_roi_threshold
+            
             ret,dst =cv2.threshold(dst,thresh,255,cv2.THRESH_BINARY) 
             roi_single_list.append(dst)
         
@@ -616,6 +646,7 @@ class Net_Detector:
             return [None,None]
         
         
+        
         inp = normalize_to_nparray(input_list,dtype=self.input_dtype)
         
         if self.params.engine_type == 'ort':
@@ -644,7 +675,4 @@ class Net_Detector:
             return [probabilities_list,result_list]
             
             
-        
-        
-    
-
+            

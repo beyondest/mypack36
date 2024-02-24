@@ -13,8 +13,6 @@ def cv_trans(img:np.ndarray):
     #_,img = cv2.threshold(img,127,255,cv2.THRESH_BINARY)
     return img
 
-input_name = 'input'
-output_name = 'output'
 
 val_trans = transforms.Compose([
     transforms.ToTensor(),
@@ -34,22 +32,28 @@ wei = './weights/binary.pth'
 wei2 = './weights/11multi.pth'
 onnx_path = './weights/binary.onnx'
 onnx_path2 = './weights/11multi.onnx'
-
+onnx_path3 = './weights/wangyi.onnx'
 
 test_path = 'roi_tmp.jpg'
+test_path2 = 'armorred.png'
 class_yaml_path = './tmp_net_config/class.yaml'
 
 
-model = QNet(11)
 
 
-real_time_img = cv2.imread(test_path,cv2.IMREAD_GRAYSCALE)
-_,real_time_img = cv2.threshold(real_time_img,127,255,cv2.THRESH_BINARY)
-real_time_img = cv2.resize(real_time_img,(32,32))
+binary_pth_model = False
+binary_onnx_model = False
+yolo_pth_model = False
+yolo_onnx_model = True
 
 
-
-if 0:
+if binary_pth_model:
+    
+    model = QNet(11)
+    
+    real_time_img = cv2.imread(test_path,cv2.IMREAD_GRAYSCALE)
+    _,real_time_img = cv2.threshold(real_time_img,127,255,cv2.THRESH_BINARY)
+    real_time_img = cv2.resize(real_time_img,(32,32))
 
     predict_classification(model=model,
                         trans=val_trans,
@@ -61,8 +65,16 @@ if 0:
                         if_show_after_cvtrans=True,
                         if_draw_and_show_result=True
                         )
-if 1:
     
+if binary_onnx_model:
+    
+    input_name = 'input'
+    output_name = 'output'
+
+    real_time_img = cv2.imread(test_path,cv2.IMREAD_GRAYSCALE)
+    _,real_time_img = cv2.threshold(real_time_img,127,255,cv2.THRESH_BINARY)
+    real_time_img = cv2.resize(real_time_img,(32,32))
+
     onnx_engine = Onnx_Engine(onnx_path2,True)
     
     inp = normalize_to_nparray([real_time_img],dtype=np.float32)
@@ -81,8 +93,60 @@ if 1:
     
     print('onnx time:',t)
 
+if yolo_pth_model:
+    model = torch.load('./weights/wangyi.pt')
+    real_time_img = cv2.imread(test_path2)
+    real_time_img = cv2.cvtColor(real_time_img,cv2.COLOR_BGR2RGB)
+    real_time_img = cv2.resize(real_time_img,(640,640))
+    
+    cv2.imshow('real_time_img',real_time_img)
+    
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    
+    predict_classification(model=model,
+                        trans=real_time_trans,
+                        img_or_folder_path=real_time_img,
+                        weights_path=None,
+                        class_yaml_path=None,
+                        fmt='jpg',
+                        custom_trans_cv=None,
+                        if_show_after_cvtrans=True,
+                        if_draw_and_show_result=True)
 
 
+if yolo_onnx_model:
+    
+    input_name = 'images'
+    output_name = 'output0'
+    
+    real_time_img = cv2.imread(test_path2)
+    real_time_img = cv2.cvtColor(real_time_img,cv2.COLOR_BGR2RGB)
+    real_time_img = cv2.resize(real_time_img,(640,640))
+    
+    
+    cv2.imshow('real_time_img',real_time_img)
+    
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    
+    onnx_engine = Onnx_Engine(onnx_path3,True)
+    
+    inp = normalize_to_nparray([real_time_img],dtype=np.float32)
+    
+    out_list,t = onnx_engine.run(output_nodes_name_list=None,
+                    input_nodes_name_to_npvalue={input_name:inp})
+    
+    #class_dict = Data.get_file_info_from_yaml(class_yaml_path)
+    print(out_list[0].shape)
+    p,i = trans_logits_in_batch_to_result(out_list[0])
+    
+    print(p,i)
+    #result_list = [class_dict[j] for j in i]
+    print('probabilities:',p)
+    #print('results',result_list)
+    
+    print('onnx time:',t)
     
 
     

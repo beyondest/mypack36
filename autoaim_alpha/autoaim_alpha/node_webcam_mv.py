@@ -9,25 +9,26 @@ from sensor_msgs.msg import Image
 
 from .camera.mv_class import *
 
-topic = topic_img_raw
-qos_profile = qos_profile_img_raw
 
 
 class Node_Webcam_MV(Node,Custom_Context_Obj):
+    
     def __init__(self,
                  name:str,
-                 time_s:float
+                 topic:dict,
+                 frequency:float
                  ):
+        
         super().__init__(name)
         
 
         self.publisher = self.create_publisher(
-                                               Image,
-                                               topic=topic,
-                                               qos_profile=qos_profile
+                                               topic['type'],
+                                               topic=topic['name'],
+                                               qos_profile=topic['qos_profile']
                                                )
         
-        self.timer_pub_img = self.create_timer(time_s,self.timer_pub_img_callback)
+        self.timer_pub_img = self.create_timer(1/frequency,self.timer_pub_img_callback)
         self.cv_bridge = cv_bridge.CvBridge()
         
         self.mv = Mindvision_Camera(
@@ -64,15 +65,18 @@ class Node_Webcam_MV(Node,Custom_Context_Obj):
         
 
     def _errorhandler(self,exc_value):
-        print(f"Get error : {exc_value}")
+        print(f"Node {self.get_name()} get error : {exc_value}")
     
 def main(args = None):
     
     rclpy.init(args=args)
     
-    node = Node_Webcam_MV(node_webcam_mv,1/node_webcam_mv_frequency)
+    node = Node_Webcam_MV(node_webcam_mv_name,
+                          topic_img_raw,
+                          node_webcam_mv_frequency
+                          )
     
-    with Custome_Context(node_webcam_mv,node):
+    with Custome_Context(node_webcam_mv_name,node):
         rclpy.spin(node)
         
     rclpy.shutdown()

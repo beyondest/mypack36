@@ -1,40 +1,66 @@
-import cv2
-import time
+
+from ..os_op.basic import *
 import numpy as np
+import cv2
 from typing import Union,Optional
 import math
 
 
+class canvas:
+    def __init__(self,size_tuple:tuple,color:str='white'):
+        '''
+        size_tuple: (width,height,channel)
+        '''
+        img=np.zeros(size_tuple,dtype=np.uint8)
+        if color=='white':
+            img.fill(255)
+        self.color = color
+        self.img=img
+        self.wid=img.shape[1]
+        self.hei=img.shape[0]
+        self.timecount = 0
+        self.timecount_max = self.wid - 1
+        
+        
+    def show(self):
+        '''
+        Only for quick show, will block until pressing
+        '''
+        cv2.imshow('canvas',self.img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
 def order_rec_points(rec_points:np.ndarray)->np.ndarray:
-        '''
-        return rec_points in order:\n
-        up_left\n
-        up_right\n
-        bottom_right\n
-        bottom_left\n
-        Notice : will reshape to (4,2) if input is (4,1,2)
-        '''
-        if len(rec_points.shape) == 3:
-            rec_points_copy = rec_points.reshape((4,2))
-        else:
-            rec_points_copy = rec_points
-        ordered_points = np.zeros_like(rec_points_copy)
+    '''
+    return rec_points in order:\n
+    up_left\n
+    up_right\n
+    bottom_right\n
+    bottom_left\n
+    Notice : will reshape to (4,2) if input is (4,1,2)
+    '''
+    if len(rec_points.shape) == 3:
+        rec_points_copy = rec_points.reshape((4,2))
+    else:
+        rec_points_copy = rec_points
+        
+        
+    ordered_points = np.zeros_like(rec_points_copy)
+    #find up_left and bottom_right
+    #sum=x+y
+    sums = rec_points_copy.sum(axis=1)
+    ordered_points[0] = rec_points_copy[np.argmin(sums)]
+    ordered_points[2] = rec_points_copy[np.argmax(sums)]
 
-        #find up_left and bottom_right
-        #sum=x+y
-        sums = rec_points_copy.sum(axis=1)
-        ordered_points[0] = rec_points_copy[np.argmin(sums)]
-        ordered_points[2] = rec_points_copy[np.argmax(sums)]
+    #find right_up and bottom_left
+    #diff=y-x
+    diffs = np.diff(rec_points_copy, axis=1)
+    #smallest is up_right
+    ordered_points[1] = rec_points_copy[np.argmin(diffs)]
+    #biggest is bottom_left
+    ordered_points[3] = rec_points_copy[np.argmax(diffs)]
 
-        #find right_up and bottom_left
-        #diff=y-x
-        diffs = np.diff(rec_points_copy, axis=1)
-        #smallest is up_right
-        ordered_points[1] = rec_points_copy[np.argmin(diffs)]
-        #biggest is bottom_left
-        ordered_points[3] = rec_points_copy[np.argmax(diffs)]
-
-        return ordered_points 
+    return ordered_points 
     
     
 def make_big_rec(cont1:np.ndarray,
@@ -417,3 +443,88 @@ def get_threshold(img_for_show_in_hist:np.ndarray,
     
     return thresh
 
+
+def get_trapezoid_corners(rect1, rect2):
+    ordered_pts = np.zeros((4, 2))
+    
+
+    if getrec_info(rect1)[0] < getrec_info(rect2)[0]:
+        
+        ordered_rect1 = order_rec_points(rect1)
+        ordered_rect2 = order_rec_points(rect2)
+    else:
+        ordered_rect1 = order_rec_points(rect2)
+        ordered_rect2 = order_rec_points(rect1)
+    
+        
+    ordered_pts[0] = ordered_rect1[0]
+    ordered_pts[1] = ordered_rect2[1]
+    ordered_pts[2] = ordered_rect2[2]
+    ordered_pts[3] = ordered_rect1[3]
+    
+    return ordered_pts
+
+
+def CAL_EUCLIDEAN_DISTANCE(pt1,pt2)->float:
+    
+    return ((pt1[0] - pt2[0]) ** 2 + (pt1[1] - pt2[1]) ** 2) ** 0.5
+
+
+def expand_trapezoid_wid(trapezoid_cont_list:Union[list,None],expand_rate:float=1.5,img_size_yx:tuple=(1024,1280)):
+    if trapezoid_cont_list is None:
+        return None
+    
+    
+    out_list=[]
+    for i in trapezoid_cont_list:
+        expanded_trapezoid_points = np.zeros((4, 2))
+        dis_left = CAL_EUCLIDEAN_DISTANCE(i[0],i[3]) * expand_rate / 2
+        dis_right = CAL_EUCLIDEAN_DISTANCE(i[1],i[2]) * expand_rate / 2
+        center_left = (i[0] + i[3])/2
+        center_right = (i[1] + i[2])/2
+        
+        if i[0][0] - i[3][0] == 0:
+            expanded_trapezoid_points[0] = center_left - dis_left * np.array([0,1])
+            expanded_trapezoid_points[3] = center_left + dis_left * np.array([0,1])
+        
+        else:
+            slope_left = (i[0][1] - i[3][1])/(i[0][0] - i[3][0])
+            
+            expanded_trapezoid_points[0] = walk_until_dis(center_left[0],
+                                                          center_left[1],
+                                                          slope_left,
+                                                          dis_left,
+                                                          'left' if slope_left > 0 else 'right',
+                                                          img_size_yx=img_size_yx
+                                                        )
+            expanded_trapezoid_points[3] = walk_until_dis(center_left[0],
+                                                          center_left[1],
+                                                          slope_left,
+                                                          dis_left,
+                                                          'right' if slope_left > 0 else 'left',
+                                                          img_size_yx=img_size_yx
+                                                        )
+        if i[1][0] - i[2][0] == 0:
+            expanded_trapezoid_points[1] = center_right - dis_right * np.array([0,1])
+            expanded_trapezoid_points[2] = center_right + dis_right * np.array([0,1])
+            
+        else:
+            slope_right = (i[1][1] - i[2][1])/(i[1][0] - i[2][0])
+            expanded_trapezoid_points[1] = walk_until_dis(center_right[0],
+                                                          center_right[1],
+                                                          slope_right,
+                                                          dis_right,
+                                                          'left' if slope_right > 0 else 'right',
+                                                          img_size_yx=img_size_yx
+                                                        )
+            expanded_trapezoid_points[2] = walk_until_dis(center_right[0],
+                                                          center_right[1],
+                                                          slope_right,
+                                                          dis_right,
+                                                          'right' if slope_right > 0 else 'left',
+                                                          img_size_yx=img_size_yx
+                                                        )
+        
+        out_list.append(expanded_trapezoid_points)
+        
+    return out_list

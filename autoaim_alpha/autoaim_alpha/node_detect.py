@@ -9,20 +9,19 @@ import time
 from .img.detector import Armor_Detector
 
 
-topic = topic_img_raw
-qos_profile = qos_profile_img_raw
-
-class Node_Img_find_targeter(Node,Custom_Context_Obj):
+class Node_Detect(Node,Custom_Context_Obj):
     
-    def __init__(self,name):
+    def __init__(self,
+                 name,
+                 topic:dict):
         
         super().__init__(name)
         
         
         self.sub = self.create_subscription(
-                                            Image,
-                                            topic=topic,
-                                            qos_profile=qos_profile,
+                                            topic['type'],
+                                            topic=topic['name'],
+                                            qos_profile=topic['qos_profile'],
                                             callback=self.sub_callback
                                             )
         
@@ -50,7 +49,7 @@ class Node_Img_find_targeter(Node,Custom_Context_Obj):
         if mode == 'Dbg':
             self.armor_detector.visualize(img,fps=self.fps)
         
-      
+        
         self.get_logger().info(f"find target time:{find_time}s, fps:{self.fps:.2f}")
         self.get_logger().info(f"result:{result}")
 
@@ -65,16 +64,16 @@ class Node_Img_find_targeter(Node,Custom_Context_Obj):
     def _start(self):
         
         cv2.namedWindow(self.window_name,cv2.WINDOW_AUTOSIZE)
-        self.get_logger().info(f"Node Img find_targeter start success")
+        self.get_logger().info(f"Node {self.get_name()} start success")
     
     def _end(self):
         
         cv2.destroyAllWindows()
-        self.get_logger().info(f"Node Img find_targeter end success")
+        self.get_logger().info(f"Node {self.get_name()} end success")
         self.destroy_node()
 
     def _errorhandler(self,exc_value):
-        print(f"get error {exc_value}")
+        print(f"Node {self.get_name()} get error {exc_value}")
         
         
     
@@ -82,8 +81,8 @@ class Node_Img_find_targeter(Node,Custom_Context_Obj):
 def main(args = None):
     
     rclpy.init(args=args)
-    node = Node_Img_find_targeter(node_detector)
-    with Custome_Context(node_detector,node):
+    node = Node_Detect(node_detect_name,topic_img_raw)
+    with Custome_Context(node_detect_name,node):
         rclpy.spin(node)
     rclpy.shutdown()
         
