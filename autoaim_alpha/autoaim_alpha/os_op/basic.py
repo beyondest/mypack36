@@ -3,9 +3,8 @@
 from typing import Any, Union,Optional
 from .global_logger import *
 from ..utils_network import data
-
-import cv2
-
+from .decorator import *
+import numpy as np
 
 
 def CLAMP(x,scope:list,if_should_be_in_scope:bool = False):
@@ -183,3 +182,160 @@ def CHECK_INPUT_VALID(input,*available):
         return None
     else :
         lr1.error(f"OS_OP : input is not availble, get {input}, expect {available}")
+
+
+def TRANS_RVEC_TO_ROT_MATRIX(rvec:np.ndarray)->np.ndarray:
+
+    if rvec is None:
+        lr1.error(f"OS_OP : TRANS_RVEC_TO_ROT_MATRIX failed, rvec is None")
+        return None
+    
+    theta = np.linalg.norm(rvec)
+    k = rvec / theta
+    K = np.array([[0, -k[2], k[1]], [k[2], 0, -k[0]], [-k[1], k[0], 0]])
+    rot_matrix = np.eye(3) + np.sin(theta) * K + (1 - np.cos(theta)) * np.dot(K, K)
+    return rot_matrix
+
+
+
+class Score_Obj:
+    def __init__(self,
+                 name:str,
+                 attributes_list:list,
+                 score_accumulation_method_list:list,
+                 weights_list:list,
+                 reference_list:Optional[list]=None):
+        """
+
+        Args:
+            name (str): _description_
+            attributes_list (list): _description_
+            score_accumulation_method_list (list): _description_
+                if 'add' : add score to current score
+                if'mul' : multiply score to current score
+                if 'pow' : power score to current score
+
+        Raises:
+            TypeError: _description_
+        """
+        
+        if len(score_accumulation_method_list) != len(attributes_list):
+            lr1.critical(f"OS_OP : score_accumulation_method_list length {len(score_accumulation_method_list)} not equal to attributes_list length {len(attributes_list)}")
+            raise TypeError(f"score_accumulation_method_list length {len(score_accumulation_method_list)} not equal to attributes_list length {len(attributes_list)}")
+        
+        for i in score_accumulation_method_list:
+            CHECK_INPUT_VALID(i,['add','mul','pow'])
+        
+        self.name = name
+        self.score_list = []
+        self.score_accumulation_method_list = score_accumulation_method_list
+        self.attributes_list = attributes_list
+        self.reference_list = reference_list
+        
+        for id,attribute in enumerate(attributes_list):
+            
+            score = self.turn_attribute_to_score(id,attribute,reference_list[id] if reference_list is not None else None)
+            self.score_list.append(score * weights_list[id])
+            
+    def turn_attribute_to_score(self,
+                                 attribute_id,
+                                 attribute_value,
+                                 reference_value:Optional[float]=None)->float:
+        
+        raise NotImplementedError("OS_OP : turn_attribute_to_score method should be override")
+    
+    def show_each_attribute_score(self):
+        
+        lr1.info(f"{self.name} : each attribute score :")
+        
+        for i,score in enumerate(self.score_list):
+            lr1.info(f"OS_OP : attribute {i} : {self.attributes_list[i]} reference {self.reference_list[i]} score {score}")
+
+class Score_Keeper:
+    
+    def __init__(self) -> None:
+        self.score_obj_name_to_score = {}
+        
+    def add_score_obj(self,score_obj:Score_Obj):
+        
+        score = 0
+        for i,score_method in enumerate(score_obj.score_accumulation_method_list):
+            
+            if score_method == 'add':
+                score += score_obj.score_list[i]
+            elif score_method =='mul':
+                score *= score_obj.score_list[i]
+            elif score_method == 'pow':
+                score **= score_obj.score_list[i]
+            
+        if score_obj.name in self.score_obj_name_to_score:
+            lr1.critical(f"OS_OP : score_obj {score_obj.name} already in score_keeper")
+            raise TypeError(f" score_obj {score_obj.name} already in score_keeper")
+            
+        self.score_obj_name_to_score[score_obj.name] = score
+    
+    def get_name_and_score_of_score_by_rank(self,rank:int)->list:
+        """Get name of score by rank, rank start from 0; Remember update_rank() before use this method
+
+        Args:
+            rank (int): _description_
+
+        Raises:
+            TypeError: _description_
+
+        Returns:
+            name,score: _description_
+        """
+        if rank < 0 or rank >= len(self.score_obj_name_to_score):
+            lr1.critical(f"OS_OP : rank {rank} out of range, should be 0 <= rank < {len(self.score_obj_name_to_score)}")
+            raise TypeError(f"rank {rank} out of range, should be 0 <= rank < {len(self.score_obj_name_to_score)}")
+
+        
+        return list(self.score_obj_name_to_score.keys())[rank],list(self.score_obj_name_to_score.values())[rank]
+    
+    
+    def update_rank(self):
+        
+        self.score_obj_name_to_score = dict(sorted(self.score_obj_name_to_score.items(), key=lambda item: item[1],reverse=True))
+
+
+def CAL_COS_THETA(v1,v2)->float:
+    """Calculate cos theta between two vectors
+
+    Args:
+        v1 (np.ndarray): _description_
+        v2 (np.ndarray): _description_
+
+    Returns:
+        float: _description_
+    """
+    return np.dot(v1,v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+
+
+def SHIFT_LIST_AND_ASSIG_VALUE(lst:list,value)->list:
+    """Shift list to right and assign value to the lst[0]
+
+    Args:
+        lst (list): _description_
+        value (_type_): _description_
+
+    Returns:
+        list: _description_
+    """
+    lst.insert(0,value)
+    lst.pop()
+    return lst
+
+@timing(1)
+def BISECTION_METHOD(f,a,b,e:float = 1e-6)->float:
+    
+    while abs(b-a) > e:
+        c = (a+b)/2
+        if f(c) == 0:
+            return c
+        elif f(a)*f(c) < 0:
+            b = c
+        else:
+            a = c
+            
+    return (a+b)/2

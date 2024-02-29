@@ -7,13 +7,15 @@ import cv2
 import numpy as np
 import time
 from .img.detector import Armor_Detector
-
+from geometry_msgs.msg import TransformStamped
+from tf2_msgs.msg import TFMessage
 
 class Node_Detect(Node,Custom_Context_Obj):
     
     def __init__(self,
                  name,
-                 topic:dict):
+                 topic:dict,
+                 topic2:dict):
         
         super().__init__(name)
         
@@ -24,7 +26,11 @@ class Node_Detect(Node,Custom_Context_Obj):
                                             qos_profile=topic['qos_profile'],
                                             callback=self.sub_callback
                                             )
-        
+        self.pub = self.create_publisher(
+                                            topic2['type'],
+                                            topic=topic2['name'],
+                                            qos_profile=topic2['qos_profile']
+                                            )
         
         self.cv_bridge = CvBridge()
         self.armor_detector = Armor_Detector(
@@ -51,8 +57,39 @@ class Node_Detect(Node,Custom_Context_Obj):
         
         
         self.get_logger().info(f"find target time:{find_time}s, fps:{self.fps:.2f}")
-        self.get_logger().info(f"result:{result}")
+        self.get_logger().info(f'find result:{result}')
+        
+        msg = TFMessage()
+        if result is not None:
+            for each_result in result:
+                tf = TransformStamped()
+                
+                tf.header.frame_id = 'Detector_0:'
+                tf.header.stamp = self.get_clock().now().to_msg()
 
+                tf.child_frame_id = each_result['name']
+                tf.transform.translation.x = each_result['pos'][0]
+                tf.transform.translation.y = each_result['pos'][1]
+                tf.transform.translation.z = each_result['pos'][2]
+                tf.transform.rotation.x = each_result['rvec'][0]
+                tf.transform.rotation.y = each_result['rvec'][1]    
+                tf.transform.rotation.z = each_result['rvec'][2]
+                msg.transforms.append(tf)
+                
+                log_info = f"\n{tf.header.frame_id}\n\
+                        Target {tf.child_frame_id}\n\
+                        Pos {tf.transform.translation.x}, {tf.transform.translation.y}, {tf.transform.translation.z}\n\
+                        Rot {tf.transform.rotation.x}, {tf.transform.rotation.y}, {tf.transform.rotation.z}\n\
+                        Time: {tf.header.stamp.sec}, {tf.header.stamp.nanosec}\n"
+                self.get_logger().info(log_info)
+            
+        
+                
+            self.pub.publish(msg)
+            self.get_logger().info(f"publish tf success")
+        else:
+            self.get_logger().info(f"not publish tf")
+            
         
     def sub_callback(self,data):
         

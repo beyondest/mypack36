@@ -5,6 +5,8 @@ from rclpy.node import Node
 from geometry_msgs.msg import TransformStamped
 
 
+
+
 class MyNode(Node,Custom_Context_Obj):
 
     def __init__(self,
@@ -21,20 +23,27 @@ class MyNode(Node,Custom_Context_Obj):
         for i in range(5):
             tf = TransformStamped()
             tf.header.stamp = self.get_clock().now().to_msg()
-            tf.header.frame_id = "world"
-            tf.child_frame_id = f"object_{i}"
+            tf.header.frame_id = "Detector_0"
+            tf.child_frame_id = armor_type_list[i]
             tf.transform.translation.x = 2.0
             tf.transform.translation.y = 3.0
             tf.transform.translation.z = 4.0
             tf.transform.rotation.x = 0.0
             tf.transform.rotation.y = 0.0
             tf.transform.rotation.z = 0.0
-            tf.transform.rotation.w = 1.0
+            
+            
             msg.transforms.append(tf)
+            log_info = f"\n{tf.header.frame_id}\n\
+                        Target {tf.child_frame_id}\n\
+                        Pos {tf.transform.translation.x}, {tf.transform.translation.y}, {tf.transform.translation.z}\n\
+                        Rot {tf.transform.rotation.x}, {tf.transform.rotation.y}, {tf.transform.rotation.z}\n\
+                        Time: {tf.header.stamp.sec}, {tf.header.stamp.nanosec}\n"
+            self.get_logger().info(log_info)
+            
+            
         self.publisher_.publish(msg)
-        self.get_logger().info(f"Published {len(msg.transforms)} transforms")
-        self.publisher_.publish(msg)
-        self.get_logger().info(f"Published msg: {msg}")
+        self.get_logger().info(f"Publish TF success")
     
     
     def _start(self):

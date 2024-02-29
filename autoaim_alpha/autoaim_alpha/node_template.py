@@ -10,10 +10,30 @@ class MyNode(Node,Custom_Context_Obj):
     def __init__(self,
                  name,
                  topic:dict,
-                 frequency:float):
+                 frequency:Union[float,None] = None):
         super().__init__(name)
-        self.publisher_ = self.create_publisher(topic['type'], topic['name'], topic['qos_profile'])
+        self.publisher_ = self.create_publisher(topic['type'],
+                                                topic['name'],
+                                                topic['qos_profile'])
+        
+        self.subscription_ = self.create_subscription(topic['type'],
+                                                      topic['name'],
+                                                      self.listener_callback,
+                                                      topic['qos_profile'])
+                                        
+
+        
+
         self.timer = self.create_timer(1/frequency, self.timer_callback)
+
+
+
+    def listener_callback(self, msg:TFMessage):
+        for tf in msg.transforms:
+            self.get_logger().info(tf)
+
+
+
 
     def timer_callback(self):
         msg = ...

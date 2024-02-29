@@ -1,0 +1,11 @@
+each armor relative tvec,rvec to car center is fixed and there is a pattern to follow between armors
+
+e.g.: (+ vs - ???)(tools.py get_other_face_center_pos)
+    rvec_0 = np.array([0,1,0])
+    rvec_1 = np.array([0,1+np.pi/2,0])
+    rvec_2 = np.array([0,1+np.pi,0])
+    rvec_3 = np.array([0,1+3*np.pi/2,0])
+
+
+Q: detect_history_list[i].kalman_filter is not used
+

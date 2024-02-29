@@ -83,7 +83,7 @@ class Armor_Detector:
         
     @timing(1)
     def get_result(self,img_bgr:np.ndarray,img_bgr_exposure2:np.ndarray)->Union[list,None]:
-        """get result of armor detection
+        """@timing(1) get result of armor detection
         Returns:
             Union[list,None]:
             
@@ -197,7 +197,12 @@ class Armor_Detector:
                     else:
                         pos,rvec = output
                         
-                    each_result = {'pos':pos,'center':self.center_list[i],'result':self.result_list[i],'probability':self.probability_list[i],'big_rec':self.big_rec_list[i],'rvec':rvec}
+                    each_result = {'pos':pos,
+                                   'center':self.center_list[i],
+                                   'result':self.result_list[i],
+                                   'probability':self.probability_list[i],
+                                   'big_rec':self.big_rec_list[i],
+                                   'rvec':rvec}
                     
                     self.final_result_list.append(each_result)
             

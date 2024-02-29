@@ -8,6 +8,7 @@ from .utils_network.data import Data
 
 
 
+armor_type_list = ['1d','2x','3d','3x','4d','4x','5d','5x','based','basex','sentry']
 
 
 general_config = Data.get_file_info_from_yaml('/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/general_config.yaml')
