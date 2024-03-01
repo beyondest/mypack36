@@ -10,7 +10,7 @@ from .img.detector import Armor_Detector
 from geometry_msgs.msg import TransformStamped
 from tf2_msgs.msg import TFMessage
 
-class Node_Detect(Node,Custom_Context_Obj):
+class Node_Detector(Node,Custom_Context_Obj):
     
     def __init__(self,
                  name,
@@ -59,8 +59,8 @@ class Node_Detect(Node,Custom_Context_Obj):
         self.get_logger().info(f"find target time:{find_time}s, fps:{self.fps:.2f}")
         self.get_logger().info(f'find result:{result}')
         
-        msg = TFMessage()
         if result is not None:
+            msg = TFMessage()
             for each_result in result:
                 tf = TransformStamped()
                 
@@ -76,15 +76,14 @@ class Node_Detect(Node,Custom_Context_Obj):
                 tf.transform.rotation.z = each_result['rvec'][2]
                 msg.transforms.append(tf)
                 
+                
                 log_info = f"\n{tf.header.frame_id}\n\
                         Target {tf.child_frame_id}\n\
                         Pos {tf.transform.translation.x}, {tf.transform.translation.y}, {tf.transform.translation.z}\n\
                         Rot {tf.transform.rotation.x}, {tf.transform.rotation.y}, {tf.transform.rotation.z}\n\
                         Time: {tf.header.stamp.sec}, {tf.header.stamp.nanosec}\n"
-                self.get_logger().info(log_info)
-            
-        
-                
+                self.get_logger().debug(log_info)
+                    
             self.pub.publish(msg)
             self.get_logger().info(f"publish tf success")
         else:
@@ -118,8 +117,10 @@ class Node_Detect(Node,Custom_Context_Obj):
 def main(args = None):
     
     rclpy.init(args=args)
-    node = Node_Detect(node_detect_name,topic_img_raw)
-    with Custome_Context(node_detect_name,node):
+    node = Node_Detector(node_detector_name,
+                         topic_img_raw,
+                         topic_armor_pos)
+    with Custome_Context(node_detector_name,node):
         rclpy.spin(node)
     rclpy.shutdown()
         

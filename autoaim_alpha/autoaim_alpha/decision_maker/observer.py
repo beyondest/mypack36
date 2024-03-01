@@ -208,11 +208,11 @@ class Observer_Params(Params):
 class Observer:
     
     def __init__(self,
-                 observer_params_yaml_path:Union[str,None]=None,
-                 mode:str = 'Dbg'
+                 mode:str = 'Dbg',
+                 observer_params_yaml_path:Union[str,None]=None
                  ):
         
-        CHECK_INPUT_VALID(mode,['Dbg','Rel'])
+        CHECK_INPUT_VALID(mode,'Dbg','Rel')
         self.mode = mode
         self.observer_params = Observer_Params()
         self.latest_focus_armor_name = None
@@ -318,16 +318,15 @@ class Observer:
             
     def get_car_latest_state(self)->list:
         """
-        Args:
-            armor_name (_type_): _description_
-
-        Returns:list of dict:
-            armor_name:str,
-            car_center_tvec(armor id 0 tvec) in camera frame 
-            car_center_rvec(armor id 0 rvec) in camera frame
-            car_center_translation_velocity in camera frame
-            car_rotation_speed in car frame
-            car_time:float
+        
+        Returns:
+            list of dict:
+                armor_name:str
+                car_center_tvec : (armor id 0 tvec) in camera frame 
+                car_center_rvec : (armor id 0 rvec) in camera frame
+                car_center_tv_vec : (armor id 0 tv_vec) in camera frame
+                car_rotation_speed : in car frame
+                car_time:float
         """
         car_list = []
         for armor_name in self.observer_params.armor_name_to_car_params.keys():

@@ -158,4 +158,43 @@ class Kalman_Filter:
         self.X_posterior_predict = self.X_prior_predict + self.K @ (Z - self.H @ self.X_prior_predict)
         self.P_posterior_predict = (np.eye(self.X_posterior_predict.shape[0]) - self.K @ self.H) @ self.P_prior_predict
         
+
+
+def trans_t_to_unix_time(minute:int,
+                         second:int,
+                         second_frac:float,
+                         zero_unix_time:float)->float:
+    """
+    Transform the time in the format of (minute, second, second_frac) to the unix time.
+    Args:
+        minute (int): _description_
+        second (int): _description_
+        second_frac (float): _description_
+        zero_unix_time (float): _description_
+
+    Returns:
+        float: the unix time.
+    """
+    return zero_unix_time + minute*60 + second + second_frac/1000000000.0
+
+def trans_unix_time_to_t(unix_time:float,
+                         zero_unix_time:float)->tuple:
+    """
+
+    Args:
+        unix_time (float): _description_
+        zero_unix_time (float): _description_
+
+    Returns:
+        minute (int): _description_
+        second (int): _description_
+        second_frac (float): _description_
+    """
+    dt = unix_time - zero_unix_time
     
+    minute = int(dt//60)
+    second = int(dt%60)
+    second_frac = dt%1
+    
+    return minute, second, second_frac
+

@@ -83,11 +83,19 @@ class Armor_Detector:
         
     @timing(1)
     def get_result(self,img_bgr:np.ndarray,img_bgr_exposure2:np.ndarray)->Union[list,None]:
-        """@timing(1) get result of armor detection
+        """@timing(1)\n
+        Get result of armor detection\n
         Returns:
             Union[list,None]:
             
-                if success,return a list of dict,each dict contains 'big_rec','center','result','probability', 'pos'\n
+                if success,return a list of dict,each dict contains\n
+                'big_rec'
+                'center'
+                'result'
+                'probability'
+                'rvec'
+                'pos'\n
+                
                 if fail,return None
                 
         """

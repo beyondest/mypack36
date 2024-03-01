@@ -1,6 +1,5 @@
 import struct
 import numpy as np
-import crcmod
 from crcmod.predefined import mkPredefinedCrcFun
 import serial
 
@@ -45,6 +44,8 @@ def send_data(ser:serial.Serial,msg:bytes)->None:
             raise TypeError('send_data msg wrong format')
         
         ser.write(msg)
+    else:
+        raise ValueError('serial port not open')
         
 
 def read_data(ser:serial.Serial,byte_len:int = 16)->bytes:
@@ -60,6 +61,8 @@ def read_data(ser:serial.Serial,byte_len:int = 16)->bytes:
         #10 byte works well
         com_input = ser.read(byte_len)
         return com_input
+    else:
+        raise ValueError('serial port not open')
            
 def port_close(ser:serial.Serial):
     ser.close()          
@@ -302,10 +305,7 @@ class syn_data(data_list):
         out+= crc_v
         return out   
         
-        
             
-    
-
 class action_data(data_list):
     
     def __init__(self,
@@ -317,6 +317,7 @@ class action_data(data_list):
                  target_second:int=30,
                  target_second_frac_10000:int=1234,
                  setting_voltage_or_rpm:int=60) -> None:
+        
         super().__init__()
         
         self.label_list = ['SOF','ftimes','tarpitch','taryaw','tarmin','tarsec','tarsecfrac','svolrpm']
@@ -342,8 +343,8 @@ class action_data(data_list):
         """Calculate crc here if needed
         NO.0 (SOF:char , '<c')                             |     ('A')                      |byte0      bytes 1     total 1
         NO.1 (fire_times:int , '<b')                       |     (-1<=x<=100)               |byte1      bytes 1     total 2 (-1:not control;0:control not fire) 
-        NO.2 (target_pitch.4*10000:int , '<h')           |     (abs(x)<=15708)            |byte2-3    bytes 2     total 4
-        NO.3 (target_yaw.4*10000:int , '<h')             |     (abs(x)<=31416)            |byte4-5    bytes 2     total 6
+        NO.2 (target_pitch.4*10000:int , '<h')             |     (abs(x)<=15708)            |byte2-3    bytes 2     total 4
+        NO.3 (target_yaw.4*10000:int , '<h')               |     (abs(x)<=31416)            |byte4-5    bytes 2     total 6
         NO.4 (reach_target_time_minute:int , '<B')         |     (0<=x<60)                  |byte6      bytes 1     total 7
         NO.5 (reach_target_time_second:int , '<B')         |     (0<=x<=60)                 |byte7      bytes 1     total 8
         NO.6 (reach_target_time_second_frac.4*10000 , '<H')|     (0<=x<=10000)              |byte8-9    bytes 2     total 10 
@@ -402,8 +403,8 @@ class pos_data(data_list):
                  present_debug_value:int = -1
                  ) -> None:
         super().__init__()
+        
         self.label_list = ['SOF','stmin','stsec','stsecfrac','prepit','preyaw','predbgval']
-    
         self.SOF =SOF
         self.stm_minute = stm_minute
         self.stm_second = stm_second

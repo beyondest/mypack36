@@ -1,57 +1,67 @@
-import numpy as np
+from autoaim_alpha.autoaim_alpha.decision_maker.ballistic_predictor import *
 import matplotlib.pyplot as plt
+"""
+Calculate air drag through bullet drop on ground time with init_pitch 
 
-# 定义常量
-g = 9.8  # 重力加速度，单位 m/s^2
-k = 0.1  # 空气阻力系数，单位 Ns/m
-m = 1.0  # 小球质量，单位 kg
-v0 = np.array([1.0, 1.0])  # 初始速度，单位 m/s
-dt = 0.01  # 时间步长，单位 s
-t_max = 10.0  # 最大模拟时间，单位 s
+pitch = pi/4
 
-# 初始化变量
-t = 0.0
-x = np.array([0.0, 0.0])  # 初始位置，单位 m
-v = v0  # 初始速度，单位 m/s
+k    : t
+1e-4 : 2.94
+1e-5 : 3.75
+1e-6 : 3.90
 
-# 存储结果
-trajectory = []
+Z                    : 11
+bullet_flight_time   : 0.48
+pitch                : 0.071        4deg
 
-# 龙格库塔方法求解
-while t < t_max:
-    # 计算空气阻力
-    f = -k * v
-    
-    # 计算加速度
-    a = np.array([0.0, -g]) + f / m
-    
-    # 计算中间变量
-    k1 = dt * a
-    k2 = dt * (a + 0.5 * k1)
-    k3 = dt * (a + 0.5 * k2)
-    k4 = dt * (a + k3)
-    
-    # 更新速度和位置
-    v = v + (k1 + 2 * k2 + 2 * k3 + k4) / 6
-    x = x + v * dt
-    
-    # 存储结果
-    trajectory.append(x.copy())
-    
-    # 更新时间
-    t = t + dt
+Z                    : 0.5
+bullet_flight_time   : 0.02
+pitch                : -0.29         -16deg
+"""
 
-# 将结果转换为 NumPy 数组
-trajectory = np.array(trajectory)
+b = Ballistic_Predictor(params_yaml_path="ballistic_params.yaml",
+                        if_show_ballistic_trajectory=False)
 
-# 绘制运动轨迹
-plt.plot(trajectory[:, 0], trajectory[:, 1])
-plt.xlabel('x (m)')
-plt.ylabel('y (m)')
-plt.title('Trajectory of the ball')
-plt.grid(True)
-plt.show()
+#b.cal_max_shooting_hei_above_ground(b.params.pitch_range[1])
+#b.cal_max_shooting_dis_by_gradient()
+#b.save_params_to_yaml("ballistic_params.yaml")
+tra = []
 
-# 计算俯仰角
-theta = np.arctan(v0[1] / v0[0])
-print("俯仰角:", np.degrees(theta))
+target_pos = np.array([0, -0.3, 0.4])
+
+cur_pitch = 0
+cur_yaw = 0
+
+b._update_camera_pos_in_gun_pivot_frame(cur_yaw, cur_pitch)
+target_pos_in_gun_pivot_frame = b.params.camera_pos_in_gun_pivot_frame + target_pos
+tvec_zoy = target_pos_in_gun_pivot_frame[[2,1]]
+target_z_in_gun_pivot_frame = tvec_zoy[0]
+print(f"Target Z: {target_z_in_gun_pivot_frame}")
+
+# not accurate but fast result
+fast_result = b.get_fire_yaw_pitch(target_pos,cur_yaw,cur_pitch)
+
+b.params.R_K4_dt_near = 0.0001
+b.params.R_K4_error_tolerance = 0.005
+
+# most accurate result
+#accurate_result = b.get_fire_yaw_pitch(target_pos,cur_yaw,cur_pitch)
+
+[hei_diff,t],solve_time = b._R_K4_air_drag_ballistic_model(fast_result[1],tvec_zoy)
+print(hei_diff,t,solve_time)
+
+#[hei_diff,t],solve_time = b._R_K4_air_drag_ballistic_model(accurate_result[1],tvec_zoy)
+#print(hei_diff,t,solve_time)
+
+
+pt = np.array([target_z_in_gun_pivot_frame,hei_diff])
+b.params.R_K4_dt = 0.001
+b.params.R_K4_error_tolerance = 0.1
+
+
+
+
+
+
+
+

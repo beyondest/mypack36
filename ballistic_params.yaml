@@ -1,0 +1,29 @@
+R_K4_dt_near: 0.0001
+R_K4_dt_far: 0.001
+R_K4_error_tolerance: 0.03
+bullet_mass: 0.0032
+bullet_speed: 27
+camera_x_len: 0.12
+camera_y_len: 0.075
+g: 9.7985
+gradient_error_tolerance: 0.001
+gun_pivot_height_above_ground: 0.375
+k: 0.0001
+learning_rate: 0.002
+# 8 * 12 3V3
+# base armor height 0.4 m
+max_shooting_dis_in_pivot_frame: 11
+max_shooting_hei_above_ground: 0.5
+muzzle_x_len: 0.15
+muzzle_y_len: 0.0
+newton_dx: 0.001
+# height error of bullet predicted by newton's method
+newton_error_tolerance: 0.005
+newton_max_iter: 10
+pitch_range:
+- -0.7853981633974483
+- 0.7853981633974483
+target_min_hei_above_ground: 0.05
+yaw_range:
+- 0
+- 6.283185307179586

@@ -1,87 +1,94 @@
 from ..os_op.basic import *
 from ..os_op.decorator import *
 from ..os_op.global_logger import *
+from ..img.tools import Plt_Dynamic_Window
 
 
-
-
+"""
+Air drag coefficient: 
+>>> C = 0.47
+>>> p = 1.169
+>>> import numpy as np
+>>> S = np.pi * 16.8**2 * 1e-6 /4
+>>> S
+0.0002216707776372958
+>>> C * p * S
+0.00012179257535725942
+>>> C * p * S * 30 /2
+0.0018268886303588914
+"""
 
 class Ballistic_Predictor_Params(Params):
     def __init__(self) -> None:
         super().__init__()
         
         # see ./observer_coordinates.png
-        self.camera_x_len = 0.0
-        self.camera_y_len = 0.0
-        self.muzzle_x_len = 0.0
+        self.camera_x_len = 0.12
+        self.camera_y_len = 0.75
+        self.muzzle_x_len = 0.15
         self.muzzle_y_len = 0.0
-        
-        self.camera_init_theta = np.arctan2(self.camera_y_len, self.camera_x_len)
-        self.muzzle_init_theta = np.arctan2(self.muzzle_y_len, self.muzzle_x_len)
-        self.camera_radius = np.sqrt(self.camera_x_len**2 + self.camera_y_len**2)
-        self.muzzle_radius = np.sqrt(self.muzzle_x_len**2 + self.muzzle_y_len**2)
-        
-        self.camera_pos_in_gun_pivot_frame = np.array([0.0, self.camera_radius * np.sin(self.camera_init_theta) , np.cos(self.camera_init_theta)])
-        self.muzzle_pos_in_gun_pivot_frame = np.array([0.0, self.muzzle_radius * np.sin(self.muzzle_init_theta), np.cos(self.muzzle_init_theta)])
-        
-        
-       
         
         # due to the limitation of the electrical system, the yaw and pitch can only be within certain range
         self.yaw_range = [0,2*np.pi]
-        self.pitch_range = [-np.pi/3 , np.pi/3]
-        
-        
-        self.bullet_speed = 10 # m/s
+        self.pitch_range = [-np.pi/4 , np.pi/4]
+        self.bullet_speed = 27 # m/s
         
         # input: initial_velocity_vector, initial_position_vector, flight_time
         # output: final_position_vector
         
-        self.g = 9.81 # m/s^2
-        self.bullet_mass = 0.1 # kg
-        self.k   = 0.01 # air drag coefficient, dimensionless
+        self.g = 9.7985 # m/s^2, Qingdao gravity constant
+        self.bullet_mass = 3.2e-3 # kg
+        self.k   = 1e-4 # air drag coefficient, dimensionless
         
-        
-        self.R_K4_dt = 0.01 # time step for Runge-Kutta method, s
-        self.R_K4_error_tolerance = 1e-3 # error tolerance for Runge-Kutta method, m
+        self.R_K4_dt_near = 0.001 # time step for Runge-Kutta method, s, if Z < 2
+        self.R_K4_dt_far = 0.01
+        self.R_K4_error_tolerance = 0.01 # error tolerance for Runge-Kutta method, m
         
         self.newton_max_iter = 100 # max iteration for newton method
-        self.newton_error_tolerance = 1e-3 # error tolerance for newton method, radian angle
-        self.newton_dx = 0.01 # step for newton method, radian angle
+        self.newton_error_tolerance = 0.01 # error tolerance for newton method, radian angle
+        self.newton_dx = 0.001 # step for newton method, radian angle
         
-        self.target_min_hei_above_ground = 0.1 # m, min height of target above ground
-        self.max_shooting_dis_in_camera_frame = 10 # m, max shooting distance in camera frame, consider target min height
-        self.gun_pivot_height_above_ground = 0.5 # m, height of camera above ground
-        self.learning_rate = 0.01 # learning rate for gradient descent method
-        self.gradient_error_tolerance = 1e-3 # error tolerance for gradient descent method, radian angle
-        
+        self.target_min_hei_above_ground = 0.10 # m, min height of target above ground
+        self.max_shooting_dis_in_pivot_frame = 10 # m, max shooting distance in camera frame, consider target min height
+        self.max_shooting_hei_above_ground = 0    # need to be updated by cal_max_shooting_hei_above_ground()
+        self.gun_pivot_height_above_ground = 0.375 # m, height of camera above ground
+        self.learning_rate = 0.002 # learning rate for gradient descent method
+        self.gradient_error_tolerance = 0.001 # error tolerance for gradient descent method, radian angle
         
 class Ballistic_Predictor:
-    
-    
     def __init__(self,
                  mode:str = 'Dbg',
                  params_yaml_path:Union[str,None] = None,
-                 if_cal_max_shooting_dis_by_gradient:bool = False,
                  if_show_ballistic_trajectory:bool = False):
         
-        CHECK_INPUT_VALID(mode, ['Dbg', 'Rel'])
+        CHECK_INPUT_VALID(mode, 'Dbg','Rel')
         self.mode = mode
         self.params = Ballistic_Predictor_Params()
         self.if_show_ballistic_trajectory = if_show_ballistic_trajectory
+        
         if params_yaml_path is not None:
             self.params.load_params_from_yaml(params_yaml_path)
-        
-        
-        if if_cal_max_shooting_dis_by_gradient:
             
-            max_dis ,t = self._cal_max_shooting_dis_by_gradient(self.params.target_min_hei_above_ground)
-            self.params.max_shooting_dis_in_camera_frame = max_dis
-            if self.mode == 'Dbg':
-                lr1.info(f"Decision_maker : cal_time {t}")
-                lr1.info(f"Decision_maker : target_min_hei_above_ground: {self.params.target_min_hei_above_ground} , max_shooting_dis_in_camera_frame: {max_dis}")
-    
+        if self.if_show_ballistic_trajectory:
+            self.plt_dynamic_window = Plt_Dynamic_Window()
+        
+        self.params.camera_init_theta = np.arctan2(self.params.camera_y_len, self.params.camera_x_len)
+        self.params.muzzle_init_theta = np.arctan2(self.params.muzzle_y_len, self.params.muzzle_x_len)
+        self.params.camera_radius = np.sqrt(self.params.camera_x_len**2 + self.params.camera_y_len**2)
+        self.params.muzzle_radius = np.sqrt(self.params.muzzle_x_len**2 + self.params.muzzle_y_len**2)
+        self.params.camera_pos_in_gun_pivot_frame = np.array([0.0, self.params.camera_radius * np.sin(self.params.camera_init_theta) , np.cos(self.params.camera_init_theta)])
+        self.params.muzzle_pos_in_gun_pivot_frame = np.array([0.0, self.params.muzzle_radius * np.sin(self.params.muzzle_init_theta), np.cos(self.params.muzzle_init_theta)])
+
+        
+     
+        
     def save_params_to_yaml(self,yaml_path:str):
+        self.params.camera_init_theta = None
+        self.params.muzzle_init_theta = None
+        self.params.camera_radius = None
+        self.params.muzzle_radius = None
+        self.params.camera_pos_in_gun_pivot_frame = None
+        self.params.muzzle_pos_in_gun_pivot_frame = None
         self.params.save_params_to_yaml(yaml_path)
         
             
@@ -97,26 +104,27 @@ class Ballistic_Predictor:
             
         Returns:
             list of dicts:
-                - yaw: absolute yaw angle from electrical system (radian angle) (0-2pi)
-                - pitch: absolute pitch angle from electrical system (radian angle) (-pi/3 to pi/3)
-                - bullet flight time: _description_
-                - if_success: If the bullet can reach the target return True, otherwise return False.
+                yaw: absolute yaw angle from electrical system (radian angle) (0-2pi)
+                pitch: absolute pitch angle from electrical system (radian angle) (-pi/3 to pi/3)
+                bullet flight time: _description_
+                if_success: If the bullet can reach the target return True, otherwise return False.
         """
-        target_hei_above_ground = target_pos_in_camera_frame[1] + self.params.camera_y_len + self.params.gun_pivot_height_above_ground
+        target_hei_above_ground = target_pos_in_camera_frame[1] + self.params.camera_radius * np.sin(cur_pitch) + self.params.gun_pivot_height_above_ground
         
-        if target_pos_in_camera_frame[2] > self.params.max_shooting_dis_in_camera_frame or target_pos_in_camera_frame[1] \
-            or target_hei_above_ground < self.params.target_min_hei_above_ground:
+        if target_pos_in_camera_frame[2] > self.params.max_shooting_dis_in_pivot_frame \
+            or target_hei_above_ground < self.params.target_min_hei_above_ground\
+                or target_hei_above_ground > self.params.max_shooting_hei_above_ground:
                 
             if self.mode == 'Dbg':
                 
-                lr1.info(f"Decision_maker : target_dis: {target_pos_in_camera_frame[2]} , target_hei_above_ground: {target_hei_above_ground} ,\
-                    \nmax_shooting_dis_in_camera_frame: {self.params.max_shooting_dis_in_camera_frame} , target_min_hei_above_ground: {self.params.target_min_hei_above_ground}")
+                lr1.info(f"Decision_maker : Shooting height range: {self.params.target_min_hei_above_ground} - {self.params.max_shooting_hei_above_ground}")
+                lr1.info(f"Decision_maker : Max shooting dis (cam) : {self.params.max_shooting_dis_in_pivot_frame}")
+                lr1.info(f'Decision_maker : Target height: {target_hei_above_ground} , dis (cam): {target_pos_in_camera_frame[2]}')
                 lr1.info(f"Decision_maker : Target out of range, return current yaw and pitch")
                 
             return [cur_yaw, cur_pitch, 0, False]
         
         self._update_camera_pos_in_gun_pivot_frame(cur_yaw, cur_pitch)
-        
         target_pos_in_gun_pivot_frame = target_pos_in_camera_frame + self.params.camera_pos_in_gun_pivot_frame
         tvec_xoz = target_pos_in_gun_pivot_frame[[0,2]]
         tvec_zoy = target_pos_in_gun_pivot_frame[[2,1]]
@@ -126,7 +134,7 @@ class Ballistic_Predictor:
             required_yaw = np.arccos(cos_theta_with_z_axis) 
         else:
             required_yaw = -np.arccos(cos_theta_with_z_axis)
-        
+            
         [required_pitch , flight_time, if_success] , solve_time = self._cal_pitch_by_newton(tvec_zoy)
         
         required_pitch = required_pitch
@@ -143,10 +151,70 @@ class Ballistic_Predictor:
         if self.mode == 'Dbg':
             lr1.info(f"Decision_maker : required_yaw: {required_yaw} , required_pitch: {required_pitch} ,bullet_flight_time: {flight_time} ,\
                     \nif_success: {if_success} , solve_time: {solve_time}")
-            
         return required_yaw, required_pitch, flight_time, if_success
     
     
+    def cal_max_shooting_dis_by_gradient(self)->float:
+        '''
+        Returns:
+            float: max shooting distance in camera frame, consider target min height
+        '''
+        target_hei_in_world_frame = self.params.target_min_hei_above_ground
+        if target_hei_in_world_frame > self.params.max_shooting_hei_above_ground:
+            lr1.info(f"Decision_maker : target min height > max shooting height, {target_hei_in_world_frame} > {self.params.max_shooting_hei_above_ground}")
+            lr1.error(f"Decision_maker : cal max shooting dis by gradient failed, return 0.0")
+            return 0.0
+        
+        target_hei_in_pivot_frame = target_hei_in_world_frame - self.params.gun_pivot_height_above_ground
+        
+        pitch_start = self.params.pitch_range[0]
+        pitch_end = self.params.pitch_range[1]
+        
+        x = pitch_start
+        x_new = (pitch_start + pitch_end) / 2
+        dx = self.params.newton_dx
+        target_tvec_zoy_in_pivot_frame = np.array([0.0, target_hei_in_pivot_frame])
+        
+        while True:
+            [dis_diff , _] , _ = self._R_K4_air_drag_ballistic_model(x_new, target_tvec_zoy_in_pivot_frame,'hei')
+            actual_dis = 0 + dis_diff
+            [dis_diff_ , _] , _ = self._R_K4_air_drag_ballistic_model(x_new + dx, target_tvec_zoy_in_pivot_frame,'hei')
+            dfx = (dis_diff_ - dis_diff) / dx
+            #lr1.info(f'Decision_maker : dfx: {dfx} , x_new: {x_new} , x: {x}')
+            x = x_new
+            x_new = x + dfx * self.params.learning_rate
+            if dfx < self.params.gradient_error_tolerance:
+                break
+        
+        actual_dis = float(actual_dis)
+        self.params.max_shooting_dis_in_pivot_frame = actual_dis
+        lr1.info(f"Decision_maker : target_min_hei_above_ground: {self.params.target_min_hei_above_ground:.3f} , max_shooting_dis_in_pivot_frame: {actual_dis:.3f}")
+                
+        return actual_dis
+            
+            
+    def cal_max_shooting_hei_above_ground(self,max_pitch)->tuple:
+        """_summary_
+
+        Args:
+            max_pitch (_type_): _description_
+
+        Returns:
+            tuple: 
+                - max_shooting_hei_above_ground: _description_
+                - bullet_drop_on_ground_time: _description_
+        """
+        
+        bullet_drop_on_ground_tvec = np.array([0.0, -self.params.gun_pivot_height_above_ground])
+        [max_height_above_ground, bullet_drop_on_ground_time], _ = self._R_K4_air_drag_ballistic_model(max_pitch,
+                                                                                                       bullet_drop_on_ground_tvec,
+                                                                                                       'cal_hei')
+        self.params.max_shooting_hei_above_ground = float(max_height_above_ground)
+        lr1.info(f"Decision_maker : max_shooting_hei_above_ground: {self.params.max_shooting_hei_above_ground:.3f}, bullet_drop_on_ground_time: {bullet_drop_on_ground_time:.3f}")
+        lr1.info(f"Decision_maker : k : {self.params.k} ")
+        
+        return self.params.max_shooting_hei_above_ground, bullet_drop_on_ground_time
+        
     
     def _update_camera_pos_in_gun_pivot_frame(self, 
                                               cur_yaw:float, 
@@ -163,80 +231,67 @@ class Ballistic_Predictor:
         
         camera_theta = cur_pitch + self.params.camera_init_theta 
         muzzle_theta = cur_pitch + self.params.muzzle_init_theta 
-        self.params.camera_pos_in_gun_pivot_frame = np.array([0.0, self.params.camera_radius * np.sin(camera_theta) , np.cos(camera_theta)])
-        self.params.muzzle_pos_in_gun_pivot_frame = np.array([0.0, self.params.muzzle_radius * np.sin(muzzle_theta) , np.cos(muzzle_theta)])
-    
-    @timing(1)
-    def _cal_max_shooting_dis_by_gradient(self, target_hei_in_world_frame:float)->float:
-        '''
-        @timing(1)
-        Returns:
-            float: max shooting distance in camera frame, consider target min height
-        '''
-        target_hei_in_camera_frame = target_hei_in_world_frame - self.params.gun_pivot_height_above_ground - self.params.camera_y_len
         
-        pitch_start = self.params.pitch_range[0]
-        pitch_end = self.params.pitch_range[1]
-        
-        x = pitch_start
-        x_new = (pitch_start + pitch_end) / 2
-        dx = self.params.newton_dx
-        target_tvec_zoy = np.array([0.0, target_hei_in_camera_frame])
-        
-        while True:
-            [dis_diff , _] , _ = self._R_K4_air_drag_ballistic_model(x_new, target_tvec_zoy,'hei')
-            actual_dis = 0 + dis_diff
-            [dis_diff_ , _] , _ = self._R_K4_air_drag_ballistic_model(x_new + dx, target_tvec_zoy,'hei')
-            dfx = (dis_diff_ - dis_diff) / dx
-            x = x_new
-            x_new = x + dfx * self.params.learning_rate
-            if dfx < self.params.gradient_error_tolerance:
-                break
-        
-        
-        return actual_dis
-            
-            
-        
-        
-        
-    
+        self.params.camera_pos_in_gun_pivot_frame = np.array([0.0, self.params.camera_radius * np.sin(camera_theta) ,self.params.camera_radius * np.cos(camera_theta)])
+        self.params.muzzle_pos_in_gun_pivot_frame = np.array([0.0, self.params.muzzle_radius * np.sin(muzzle_theta) ,self.params.muzzle_radius * np.cos(muzzle_theta)])
+   
     @timing(1)
     def _R_K4_air_drag_ballistic_model(  self,
                                         pitch:float,
-                                        tvec_zoy_final:np.ndarray,
+                                        tvec_zoy_in_pivot_frame:np.ndarray,
                                         specified_hei_or_dis:str='dis'
                                         )->list:
-        """@timing(1)
+        """@timing(1)\n
         A ballistic model considering air drag and gravity.
-        f_air = -k_air_drag * v
+        f_air = -k_air_drag * |v| ** 2 * v / |v|
         f_gravity = -g * y_unit
 
         Using the Runge-Kutta method to solve.
         
         Notice:
-            specified_hei_or_dis: 'hei' or 'dis'
+            specified_hei_or_dis: 'hei' or 'dis' or 'cal_hei
         Returns:
-            [actual_diff , flight_time:float]
-            actual_diff = hei_diff if specified_hei_or_dis == 'dis' else dis_diff
+            [x , flight_time:float]
+            if specified_hei_or_dis == 'hei':
+                x = dis_diff
+            elif specified_hei_or_dis == 'dis':
+                x = hei_diff
+            elif specified_hei_or_dis == 'cal_hei':
+                x = max_height
+                t = bullet_drop_on_ground_time
+            
         """
+        
         actual_angle = self.params.muzzle_init_theta + pitch
         tvec_init = np.array([np.cos(actual_angle) * self.params.muzzle_radius, np.sin(actual_angle) * self.params.muzzle_radius])
         v_init = np.array([np.cos(pitch) * self.params.bullet_speed, np.sin(pitch) * self.params.bullet_speed])
         
         v = v_init
         r = tvec_init
-        rt = tvec_zoy_final
         k = self.params.k
         g = self.params.g
         m = self.params.bullet_mass
-        dt = self.params.R_K4_dt
+        dt = self.params.R_K4_dt_near if tvec_zoy_in_pivot_frame[0] < 1.5 else self.params.R_K4_dt_far 
         t = 0.0
         error = 100
         
-        while error > self.params.R_K4_error_tolerance:
-            f = -k * v
+        if self.if_show_ballistic_trajectory:
+            trajectory = []
+        if specified_hei_or_dis == 'cal_hei':
+            rt = r
+            return_var = 1
+        else:
+            rt = tvec_zoy_in_pivot_frame
+            return_var = 0
+        
+        error_thresh = self.params.R_K4_error_tolerance if specified_hei_or_dis != 'cal_hei' else 1e-5 
+        while error > error_thresh:
+            if specified_hei_or_dis == 'cal_hei':
+                rt = r
             
+            v_l = np.linalg.norm(v)
+            v_u = v / v_l
+            f = -k * v_l**2 * v_u
             a = np.array([0.0, -g]) + f / m
             
             k1 = dt * a
@@ -252,28 +307,50 @@ class Ballistic_Predictor:
             hei_diff = r[1] - rt[1]
             dis_diff = r[0] - rt[0]
             
+            if self.if_show_ballistic_trajectory:
+                trajectory.append(r.copy())
             if specified_hei_or_dis == 'hei':
                 error = abs(hei_diff)
-            else:
+            elif specified_hei_or_dis == 'dis':
                 error = abs(dis_diff)
+                
+            elif specified_hei_or_dis == 'cal_hei':
+                error = abs(r[1] - rt[1])
+                if error <= error_thresh:
+                    max_height = float(r[1]) + self.params.gun_pivot_height_above_ground
+                    error = 100
+                    error_thresh = self.params.R_K4_error_tolerance
+                    specified_hei_or_dis = 'hei'
+                    rt = tvec_zoy_in_pivot_frame
+                
+
+        if self.if_show_ballistic_trajectory:
+            trajectory = np.array(trajectory)
+            x = trajectory[:,0]
+            y = trajectory[:,1]
+            self.plt_dynamic_window.update(x,y)
+            
+        if specified_hei_or_dis == 'dis':
+            actual_diff = hei_diff
+        elif specified_hei_or_dis == 'hei':
+            actual_diff = dis_diff
         
+        return [actual_diff, t] if return_var == 0 else [max_height, t]
         
-        actual_diff = hei_diff if specified_hei_or_dis == 'dis' else dis_diff
-        return [actual_diff, t]
-        
-    
     
     @timing(1)
     def _cal_pitch_by_newton(self,
-                             target_tvec_zoy:np.ndarray)->list:
+                             target_tvec_zoy_in_pivot_frame:np.ndarray)->list:
         """@timing(1)\n
         Only Success when target is in range and pitch is in range.\n
         Args:
-            target_tvec_zoy (np.ndarray): _description_
+            target_tvec_zoy_in_pivot_frame (np.ndarray): _description_
 
         Returns:
             list: [pitch, flight_time:float, if_success:bool]
+            
         """
+
         a = self.params.pitch_range[0]
         b = self.params.pitch_range[1]
         
@@ -287,8 +364,8 @@ class Ballistic_Predictor:
         if_success = False
         while True:
             
-            [fx , flight_time] , RK4_spend_time = self._R_K4_air_drag_ballistic_model(x_new, target_tvec_zoy,'dis')
-            [fx_ , _] , RK4_spend_time2 = self._R_K4_air_drag_ballistic_model(x_new + dx, target_tvec_zoy,'dis')
+            [fx , flight_time] , RK4_spend_time = self._R_K4_air_drag_ballistic_model(x_new, target_tvec_zoy_in_pivot_frame,'dis')
+            [fx_ , _] , RK4_spend_time2 = self._R_K4_air_drag_ballistic_model(x_new + dx, target_tvec_zoy_in_pivot_frame,'dis')
             dfx = (fx_ - fx) / dx
             x = x_new
             x_new = x - fx / dfx
@@ -296,28 +373,44 @@ class Ballistic_Predictor:
             if self.mode == 'Dbg':
                 RK4_spend_time_all += RK4_spend_time + RK4_spend_time2
                 count += 1    
-                
-            if abs(x_new - x) < self.params.newton_error_tolerance:
+            
+            
+            if abs(fx) < self.params.newton_error_tolerance:
                 if INRANGE(x, self.params.pitch_range):
                     if_success = True
+                else:
+                    lr1.debug(f"Decision_maker : pitch out of range, {x}")
                 break
             if count >= self.params.newton_max_iter:
-                break
+                if abs(fx) < self.params.newton_error_tolerance:
+                    if INRANGE(x, self.params.pitch_range):
+                        if_success = True
+                    else:
+                        lr1.debug(f"Decision_maker : pitch out of range, {x}")
+                    break
+                else:
+                    if self.params.newton_dx / dx <999:
+                        lr1.debug(f"Decision_maker : newton_dx change to {dx/10}")
+                        dx = dx/10
+                        count = 0
+                    else:
+                        break
+                
             
-           
+                    
+                
             
-        
+            #print(f"x_new: {x_new} , x: {x} , fx: {fx} , dfx: {dfx}")
+            
         
         if self.mode == 'Dbg':
             lr1.info(f"Decision_maker : RK4_spend_time_all: {RK4_spend_time_all}, average: {RK4_spend_time_all / count / 2}")
             lr1.info(f"Decision_maker : newton iterations: {count}")
         
-        
-        
         return [x_new, flight_time, if_success]
             
         
-
+    
 
             
             

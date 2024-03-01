@@ -4,7 +4,7 @@ import numpy as np
 import cv2
 from typing import Union,Optional
 import math
-
+import matplotlib.pyplot as plt
 
 class canvas:
     def __init__(self,size_tuple:tuple,color:str='white'):
@@ -528,3 +528,19 @@ def expand_trapezoid_wid(trapezoid_cont_list:Union[list,None],expand_rate:float=
         out_list.append(expanded_trapezoid_points)
         
     return out_list
+
+class Plt_Dynamic_Window:
+    def __init__(self):
+        plt.ion()
+        self.x = np.arange(0, 10, 0.1)
+        self.y = np.sin(self.x)
+    
+    def update(self, x: np.ndarray, y: np.ndarray):
+        self.x = x
+        self.y = y
+        plt.clf()
+        plt.plot(self.x, self.y)
+        plt.pause(0.001)
+        plt.ioff()
+        
+        

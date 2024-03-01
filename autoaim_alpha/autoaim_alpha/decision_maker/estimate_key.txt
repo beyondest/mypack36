@@ -1,4 +1,5 @@
-each armor relative tvec,rvec to car center is fixed and there is a pattern to follow between armors
+
+K: each armor relative tvec,rvec to car center is fixed and there is a pattern to follow between armors
 
 e.g.: (+ vs - ???)(tools.py get_other_face_center_pos)
     rvec_0 = np.array([0,1,0])
@@ -9,3 +10,8 @@ e.g.: (+ vs - ???)(tools.py get_other_face_center_pos)
 
 Q: detect_history_list[i].kalman_filter is not used
 
+Q: newton method to solve pitch may repeatly jump back and forth on both sides of the correct pitch 
+e.g.:
+    target_pos_in_camera_frame = np.array([0,-0.3,0.4])
+
+K: In general, newton method can find the correct pitch within 5 iterations, so it is recommended to set maximum iteration to 10

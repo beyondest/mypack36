@@ -20,7 +20,7 @@ armor_color = general_config['armor_color']
 
 topic_img_raw = {'name': 'img_raw', 'type': Image, 'qos_profile':3}
 
-topic_pos = {'name': 'pos', 'type': TFMessage, 'qos_profile':10}
+topic_armor_pos = {'name': 'pos', 'type': TFMessage, 'qos_profile':10}
 
 
                                                     # Node webcam mv
@@ -40,10 +40,10 @@ camera_output_format = 'bgr8'
 
 
                                                 
-                                                    # Node detect
+                                                    # Node detector
 
 
-node_detect_name = 'node_detect'
+node_detector_name = 'node_detect'
 
 tradition_config_folder = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/tmp_tradition_config'
 net_config_folder = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/tmp_net_config'
@@ -61,8 +61,23 @@ node_publish_frequency = 10
 node_subscribe_name = 'node_subscribe'
 
 
+                                                    
+                                                    # Node decision maker
+node_decision_maker_name = 'node_decision_maker'
+predict_freq = 10
+make_decision_freq = 10     # equal to send msg freq
+receive_from_electric_sys_freq = 10 
 
-        
+
+observer_config_yaml_path = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/observer_config.yaml'
+decision_maker_config_yaml_path = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/decision_maker_config.yaml'
+ballistic_predictor_config_yaml_path = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/ballistic_predictor_config.yaml'
+port_config_yaml_path = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/port_config.yaml'
+
+
+
+
+
 
 
 
