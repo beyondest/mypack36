@@ -1,36 +1,43 @@
 
 from . import *
 from rclpy.node import Node
-from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 import cv2
 import numpy as np
 import time
 from .img.detector import Armor_Detector
-from geometry_msgs.msg import TransformStamped
-from tf2_msgs.msg import TFMessage
+from visualization_msgs.msg import Marker
+from pyquaternion import Quaternion
+
+
 
 class Node_Detector(Node,Custom_Context_Obj):
     
     def __init__(self,
                  name,
-                 topic:dict,
-                 topic2:dict):
+                 ):
         
         super().__init__(name)
         
         
-        self.sub = self.create_subscription(
-                                            topic['type'],
-                                            topic=topic['name'],
-                                            qos_profile=topic['qos_profile'],
-                                            callback=self.sub_callback
+        self.sub_img_raw = self.create_subscription(
+                                            topic_img_raw['type'],
+                                            topic_img_raw['name'],
+                                            self.sub_img_raw_callback,
+                                            topic_img_raw['qos_profile']
                                             )
-        self.pub = self.create_publisher(
-                                            topic2['type'],
-                                            topic=topic2['name'],
-                                            qos_profile=topic2['qos_profile']
+        
+        self.pub_detect_result = self.create_publisher(
+                                            topic_detect_result['type'],
+                                            topic_detect_result['name'],
+                                            topic_detect_result['qos_profile']
                                             )
+        
+        self.pub_img_detected = self.create_publisher(topic_img_detected['type'],
+                                             topic_img_detected['name'],
+                                             topic_img_detected['qos_profile'])
+
+        
         
         self.cv_bridge = CvBridge()
         self.armor_detector = Armor_Detector(
@@ -45,56 +52,53 @@ class Node_Detector(Node,Custom_Context_Obj):
         self.window_name = 'result'
         
         
-    def find_target(self,img:np.ndarray):
+    def sub_img_raw_callback(self,data):
+        
+        img = self.cv_bridge.imgmsg_to_cv2(data,camera_output_format)
         
         result , find_time = self.armor_detector.get_result(img,img)
         self.cur_time = time.perf_counter()
         self.fps = round(1/(self.cur_time-self.pre_time))
         self.pre_time = self.cur_time
         
-        if mode == 'Dbg':
-            self.armor_detector.visualize(img,fps=self.fps)
-        
-        
-        self.get_logger().info(f"find target time:{find_time}s, fps:{self.fps:.2f}")
-        self.get_logger().info(f'find result:{result}')
-        
-        if result is not None:
-            msg = TFMessage()
-            for each_result in result:
-                tf = TransformStamped()
-                
-                tf.header.frame_id = 'Detector_0:'
-                tf.header.stamp = self.get_clock().now().to_msg()
-
-                tf.child_frame_id = each_result['name']
-                tf.transform.translation.x = each_result['pos'][0]
-                tf.transform.translation.y = each_result['pos'][1]
-                tf.transform.translation.z = each_result['pos'][2]
-                tf.transform.rotation.x = each_result['rvec'][0]
-                tf.transform.rotation.y = each_result['rvec'][1]    
-                tf.transform.rotation.z = each_result['rvec'][2]
-                msg.transforms.append(tf)
-                
-                
-                log_info = f"\n{tf.header.frame_id}\n\
-                        Target {tf.child_frame_id}\n\
-                        Pos {tf.transform.translation.x}, {tf.transform.translation.y}, {tf.transform.translation.z}\n\
-                        Rot {tf.transform.rotation.x}, {tf.transform.rotation.y}, {tf.transform.rotation.z}\n\
-                        Time: {tf.header.stamp.sec}, {tf.header.stamp.nanosec}\n"
-                self.get_logger().debug(log_info)
-                    
-            self.pub.publish(msg)
-            self.get_logger().info(f"publish tf success")
-        else:
-            self.get_logger().info(f"not publish tf")
+        if if_pub_img_detected:
+            visualize_result = self.armor_detector.visualize(img,fps=self.fps,windows_name=None)
+            self.pub_img_detected.publish(self.cv_bridge.cv2_to_imgmsg(visualize_result,camera_output_format))
+            self.get_logger().info(f"publish visualize result success")
             
         
-    def sub_callback(self,data):
-        
-        img = self.cv_bridge.imgmsg_to_cv2(data,camera_output_format)
-        self.find_target(img)
-        
+        if result is not None:
+            msg = DetectResult()
+            t = self.get_clock().now().to_msg()
+            for each_result in result:
+                ed = EachDetectResult()
+                
+                ed.armor_name = each_result['name']
+                ed.confidence = each_result['probability']
+                ed.pose.header.stamp = t
+                ed.pose.header.frame_id = 'camere_frame'
+                ed.pose.pose.position.x = each_result['pos'][0]
+                ed.pose.pose.position.y = each_result['pos'][1]
+                ed.pose.pose.position.z = each_result['pos'][2]
+                
+                q = Quaternion(axis=each_result['rvec'],radians=np.linalg.norm(each_result['rvec']))
+                ed.pose.pose.orientation.w = q.w
+                ed.pose.pose.orientation.x = q.x
+                ed.pose.pose.orientation.y = q.y
+                ed.pose.pose.orientation.z = q.z
+                
+                msg.detect_result.append(ed)
+                
+                
+                log_info = f"armor_name:{ed.armor_name},confidence:{ed.confidence},pos:{ed.pose.pose.position},orientation:{ed.pose.pose.orientation} time:{t.sec}s{t.nanosec/1000000}ns"
+                
+                self.get_logger().debug(log_info)
+                self.get_logger().info(f"detect spend time:{find_time}s")
+                    
+            self.pub_img_detected.publish(msg)
+            self.get_logger().info(f"publish detect result success")
+        else:
+            self.get_logger().info(f"no target found")
         
         
     def _start(self):
@@ -117,9 +121,8 @@ class Node_Detector(Node,Custom_Context_Obj):
 def main(args = None):
     
     rclpy.init(args=args)
-    node = Node_Detector(node_detector_name,
-                         topic_img_raw,
-                         topic_armor_pos)
+    node = Node_Detector(node_detector_name)
+    
     with Custome_Context(node_detector_name,node):
         rclpy.spin(node)
     rclpy.shutdown()

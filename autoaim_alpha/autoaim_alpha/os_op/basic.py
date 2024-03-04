@@ -339,3 +339,44 @@ def BISECTION_METHOD(f,a,b,e:float = 1e-6)->float:
             a = c
             
     return (a+b)/2
+
+
+
+
+def TRANS_UNIX_TIME_TO_T(unix_time:float,
+                         zero_unix_time:float)->tuple:
+    """
+
+    Args:
+        unix_time (float): _description_
+        zero_unix_time (float): _description_
+
+    Returns:
+        minute (int): _description_
+        second (int): _description_
+        second_frac (float): _description_
+    """
+    dt = unix_time - zero_unix_time
+    
+    minute = int(dt//60)
+    second = int(dt%60)
+    second_frac = dt%1
+    
+    return minute, second, second_frac
+
+def TRANS_T_TO_UNIX_TIME(minute:int,
+                         second:int,
+                         second_frac:float,
+                         zero_unix_time:float)->float:
+    """
+
+    Args:
+        minute (int): _description_
+        second (int): _description_
+        second_frac (float): _description_
+        zero_unix_time (float): _description_
+
+    Returns:
+        float: _description_
+    """
+    return minute*60 + second + second_frac + zero_unix_time

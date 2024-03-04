@@ -1,4 +1,5 @@
 from autoaim_alpha.autoaim_alpha.decision_maker.ballistic_predictor import *
+
 import matplotlib.pyplot as plt
 """
 Calculate air drag through bullet drop on ground time with init_pitch 
@@ -31,8 +32,9 @@ x = []
 solve_time = []
 hei_error = []
 fllight_time = []
-
-for i in np.arange(0.25,11,0.05):
+fllight_time2 = []
+solve_result = []
+for i in np.arange(0.25,11,0.01):
     target_pos = np.array([0, -0.3, i])
 
     cur_pitch = 0
@@ -65,10 +67,11 @@ for i in np.arange(0.25,11,0.05):
     x.append(target_z_in_gun_pivot_frame)
     hei_error.append(hei_diff)
     fllight_time.append(t)
+    fllight_time2.append(fast_result[2])
     solve_time.append(t2-t1)
-    
-    b.params.R_K4_dt_near = 0.0001
-    b.params.R_K4_dt_far = 0.001
+    solve_result.append(fast_result[3])
+    b.params.R_K4_dt_near = 0.001
+    b.params.R_K4_dt_far = 0.005
     b.params.R_K4_error_tolerance = 0.03
 
 
@@ -81,7 +84,8 @@ plt.ylabel("Height Error (m)")
 plt.title("Height Error vs Target Z")
 
 plt.figure()
-plt.plot(x,fllight_time)
+plt.plot(x,fllight_time,'r-',label = 'accurate flight time')
+plt.plot(x,fllight_time2,'b--',label = 'not accurate flight time')
 plt.xlabel("Target Z (m)")
 plt.ylabel("Flight Time (s)")
 plt.title("Flight Time vs Target Z")
@@ -91,6 +95,13 @@ plt.plot(x,solve_time)
 plt.xlabel("Target Z (m)")
 plt.ylabel("Solve Time (s)")
 plt.title("Solve Time vs Target Z")
+
+
+plt.figure()
+plt.plot(x,solve_result)
+plt.xlabel("Target Z (m)")
+plt.ylabel("Solve Result")
+plt.title("Solve Result vs Target Z")
 
 plt.show()  
 

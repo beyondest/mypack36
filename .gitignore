@@ -7,5 +7,5 @@ roi_binary/*
 weights/*
 autoaim_alpha/autoaim_alpha/__init__.py
 
-
+ros_log/*
 

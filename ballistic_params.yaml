@@ -1,5 +1,5 @@
-R_K4_dt_near: 0.0001
-R_K4_dt_far: 0.001
+R_K4_dt_near: 0.001
+R_K4_dt_far: 0.005
 R_K4_error_tolerance: 0.03
 bullet_mass: 0.0032
 bullet_speed: 27
@@ -18,8 +18,8 @@ muzzle_x_len: 0.15
 muzzle_y_len: 0.0
 newton_dx: 0.001
 # height error of bullet predicted by newton's method
-newton_error_tolerance: 0.005
-newton_max_iter: 10
+newton_error_tolerance: 0.011
+newton_max_iter: 6
 pitch_range:
 - -0.7853981633974483
 - 0.7853981633974483

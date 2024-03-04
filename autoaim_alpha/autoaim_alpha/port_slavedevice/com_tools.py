@@ -3,7 +3,6 @@ import numpy as np
 from crcmod.predefined import mkPredefinedCrcFun
 import serial
 
-
 # Integer types:
 # 'b': signed byte (1 byte)                 -128-127
 # 'B': unsigned byte (1 byte)               0-255
@@ -41,6 +40,7 @@ import serial
 def send_data(ser:serial.Serial,msg:bytes)->None:
     if ser.is_open:
         if not isinstance(msg,bytes):
+
             raise TypeError('send_data msg wrong format')
         
         ser.write(msg)
@@ -310,33 +310,33 @@ class action_data(data_list):
     
     def __init__(self,
                  SOF:str = 'A',
-                 fire_times:int=1,
-                 target_pitch_10000:int=0,
-                 target_yaw_10000:int=0,
-                 target_minute:int=30,
-                 target_second:int=30,
-                 target_second_frac_10000:int=1234,
-                 setting_voltage_or_rpm:int=60) -> None:
+                 fire_times:int=0,
+                 abs_pitch_10000:int=-1745, # -1745 = -10 degree
+                 abs_yaw_10000:int=15708,  # 15708 = 90 degree
+                 target_minute:int=0,
+                 target_second:int=0,
+                 target_second_frac_10000:int=0,
+                 reserved_slot:int=0) -> None:
         
         super().__init__()
         
         self.label_list = ['SOF','ftimes','tarpitch','taryaw','tarmin','tarsec','tarsecfrac','svolrpm']
         self.SOF = SOF
         self.fire_times = fire_times
-        self.target_pitch_10000 = target_pitch_10000
-        self.target_yaw_10000 = target_yaw_10000
+        self.abs_pitch_10000 = abs_pitch_10000
+        self.abs_yaw_10000 = abs_yaw_10000
         self.target_minute = target_minute
         self.target_second = target_second
         self.target_second_frac_10000 = target_second_frac_10000
-        self.setting_voltage_or_rpm = setting_voltage_or_rpm
+        self.reserved_slot = reserved_slot
         self.list = [self.SOF,
                      self.fire_times,
-                     self.target_pitch_10000,
-                     self.target_yaw_10000,
+                     self.abs_pitch_10000,
+                     self.abs_yaw_10000,
                      self.target_minute,
                      self.target_second,
                      self.target_second_frac_10000,
-                     self.setting_voltage_or_rpm]
+                     self.reserved_slot]
         self.len = len(self.list)
         
     def convert_action_data_to_bytes(self,if_crc:bool = True, if_revin_crc:bool = True , if_part_crc:bool = True)->bytes:
@@ -348,7 +348,7 @@ class action_data(data_list):
         NO.4 (reach_target_time_minute:int , '<B')         |     (0<=x<60)                  |byte6      bytes 1     total 7
         NO.5 (reach_target_time_second:int , '<B')         |     (0<=x<=60)                 |byte7      bytes 1     total 8
         NO.6 (reach_target_time_second_frac.4*10000 , '<H')|     (0<=x<=10000)              |byte8-9    bytes 2     total 10 
-        NO.78(setting_voltage_or_rpm:int, '<h')(only for debug)| (-30000<=x<=30000 if vol)  |byte10-11  bytes 2     total 12
+        NO.78(reserved_slot:int, '<h')(only for debug)| (-30000<=x<=30000 if vol)  |byte10-11  bytes 2     total 12
         NO.9(crc_value:int , '<I')   (auto add to end)     |     (return of cal_crc func)   |byte12-15  bytes 4     total 16
         
         PART_CRC: byte2-5
@@ -356,12 +356,12 @@ class action_data(data_list):
         """
         self.list = [self.SOF,
                      self.fire_times,
-                     self.target_pitch_10000,
-                     self.target_yaw_10000,
+                     self.abs_pitch_10000,
+                     self.abs_yaw_10000,
                      self.target_minute,
                      self.target_second,
                      self.target_second_frac_10000,
-                     self.setting_voltage_or_rpm]
+                     self.reserved_slot]
         
         fmt_list = ['<c','<b','<h','<h','<B','<B','<H','<h']
         out = b''
@@ -382,6 +382,7 @@ class action_data(data_list):
             else:
                 raise TypeError('this function not support yet')
             self.crc_v = crc_v
+            
             crc_v = convert_to_bytes((crc_v,'<I'))
             
         else:
@@ -508,15 +509,16 @@ class pos_data(data_list):
 #first get reversed of data, then use crc-32-mpeg will get right crc same as stm32 
     
 if __name__ =="__main__":
-    target = 0xCF534AE1
-    target = 3478342369
-    send = struct.pack('<I',0x44434241)
-    
-    print(send)
-    print(cal_crc(send))
-    print(cal_crc(send[::-1]))
     
     
+    a = action_data()
+    r = a.convert_action_data_to_bytes(if_part_crc=False)
+    print(a.crc_v)
+    print(r)
+    s = ''
+    for i in r:
+        s+= hex(i)[2:] + ' '
+    print(s)
     
     
     

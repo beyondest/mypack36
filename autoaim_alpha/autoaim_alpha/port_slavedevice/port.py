@@ -18,7 +18,7 @@ class Port_Params(Params):
         self.action_data = action_data()
         self.syn_data = syn_data()
         self.pos_data = pos_data()
-        
+        self.communication_delay = 0.05
         
 
 
@@ -47,23 +47,12 @@ class Port:
                                 ) 
         
         
-    def send_decision(self,decision:dict):
-        
-        if decision['type'] == 'action':
-            self.params.action_data.target_pitch_10000 = int(decision['required_pitch'] * 10000)
-            self.params.action_data.target_yaw_10000 = int((decision['required_yaw'] - np.pi) * 10000)
-            self.params.action_data.target_minute = int(decision['required_time_minute'])
-            self.params.action_data.target_second = int(decision['required_time_second'])
-            self.params.action_data.target_second_frac_10000 = int(decision['required_time_second_frac'] * 10000)
-            self.params.action_data.fire_times = int(decision['required_fire_times'])
-        
+    def send_msg(self,sof:str = 'A'):
+        if sof == 'A':
             msg = self.params.action_data.convert_action_data_to_bytes(if_part_crc=False)
             send_data(self.ser,msg)
             
-        elif decision['type'] =='syn':
-            self.params.syn_data.present_minute = int(decision['required_time_minute'])
-            self.params.syn_data.present_second = int(decision['required_time_second'])
-            self.params.syn_data.present_second_frac_10000 = int(decision['required_time_second_frac'] * 10000)
+        elif sof == 'S':
             
             msg = self.params.syn_data.convert_syn_data_to_bytes(if_part_crc=False)
             send_data(self.ser,msg)

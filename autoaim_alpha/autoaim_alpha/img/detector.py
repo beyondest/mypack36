@@ -117,9 +117,10 @@ class Armor_Detector:
             return None
 
     
-    def visualize(self,img,fps,windows_name:str='result')->None:
+    def visualize(self,img,fps,windows_name:Union[str,None] = 'detect_result')->None:
         
-        """visualize the result of armor detection"""
+        """visualize the result of armor detection,
+            if windows_name is None, return img drawn result on it but not show """
         add_text(img,'FPS',fps,color=(255,255,255),scale_size=0.8)  
             
         if self.final_result_list:
@@ -134,6 +135,9 @@ class Armor_Detector:
                             color=(0,0,255),
                             scale_size=0.7)
                 
+        if windows_name is None:
+            return img   
+        
         cv2.imshow(windows_name,img)
         cv2.waitKey(1)
     

@@ -280,10 +280,16 @@ class Ballistic_Predictor:
         if specified_hei_or_dis == 'cal_hei':
             rt = r
             return_var = 1
+            
         else:
             rt = tvec_zoy_in_pivot_frame
             return_var = 0
-        
+            if specified_hei_or_dis == 'hei':
+                init_diff = abs(tvec_init[1] - tvec_zoy_in_pivot_frame[1])
+            else:
+                init_diff = abs(tvec_init[0] - tvec_zoy_in_pivot_frame[0])
+            error = init_diff
+            
         error_thresh = self.params.R_K4_error_tolerance if specified_hei_or_dis != 'cal_hei' else 1e-5 
         while error > error_thresh:
             if specified_hei_or_dis == 'cal_hei':
@@ -307,12 +313,19 @@ class Ballistic_Predictor:
             hei_diff = r[1] - rt[1]
             dis_diff = r[0] - rt[0]
             
+
+            
             if self.if_show_ballistic_trajectory:
                 trajectory.append(r.copy())
             if specified_hei_or_dis == 'hei':
                 error = abs(hei_diff)
+                if abs(r[1] - tvec_init[1]) > init_diff + self.params.R_K4_error_tolerance:
+                    break
+                    
             elif specified_hei_or_dis == 'dis':
                 error = abs(dis_diff)
+                if abs(r[0] - tvec_init[0]) > init_diff + self.params.R_K4_error_tolerance:
+                    break
                 
             elif specified_hei_or_dis == 'cal_hei':
                 error = abs(r[1] - rt[1])
@@ -322,6 +335,7 @@ class Ballistic_Predictor:
                     error_thresh = self.params.R_K4_error_tolerance
                     specified_hei_or_dis = 'hei'
                     rt = tvec_zoy_in_pivot_frame
+            
                 
 
         if self.if_show_ballistic_trajectory:
@@ -350,7 +364,7 @@ class Ballistic_Predictor:
             list: [pitch, flight_time:float, if_success:bool]
             
         """
-
+        c = 1.0
         a = self.params.pitch_range[0]
         b = self.params.pitch_range[1]
         
@@ -366,9 +380,9 @@ class Ballistic_Predictor:
             
             [fx , flight_time] , RK4_spend_time = self._R_K4_air_drag_ballistic_model(x_new, target_tvec_zoy_in_pivot_frame,'dis')
             [fx_ , _] , RK4_spend_time2 = self._R_K4_air_drag_ballistic_model(x_new + dx, target_tvec_zoy_in_pivot_frame,'dis')
-            dfx = (fx_ - fx) / dx
+            dfx = (fx_ - fx) / dx 
             x = x_new
-            x_new = x - fx / dfx
+            x_new = x - fx / dfx * c
             
             if self.mode == 'Dbg':
                 RK4_spend_time_all += RK4_spend_time + RK4_spend_time2
@@ -379,21 +393,22 @@ class Ballistic_Predictor:
                 if INRANGE(x, self.params.pitch_range):
                     if_success = True
                 else:
-                    lr1.debug(f"Decision_maker : pitch out of range, {x}")
+                    lr1.debug(f"Decision_maker : newton failed, pitch out of range, {x}")
                 break
             if count >= self.params.newton_max_iter:
                 if abs(fx) < self.params.newton_error_tolerance:
                     if INRANGE(x, self.params.pitch_range):
                         if_success = True
                     else:
-                        lr1.debug(f"Decision_maker : pitch out of range, {x}")
+                        lr1.debug(f"Decision_maker : newton failed, pitch out of range, {x}")
                     break
                 else:
-                    if self.params.newton_dx / dx <999:
-                        lr1.debug(f"Decision_maker : newton_dx change to {dx/10}")
-                        dx = dx/10
+                    if 1/c<3:
+                        
+                        c = c / 2
                         count = 0
                     else:
+                        lr1.debug(f"Decision_maker : newton failed, error {fx}")
                         break
                 
             

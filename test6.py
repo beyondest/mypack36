@@ -1,30 +1,19 @@
-import matplotlib
-from matplotlib import pyplot as plt
+import math
 import numpy as np
- 
-class Plt_Dynamic_Window:
-    def __init__(self):
-        plt.ion()
-        self.x = np.arange(0, 10, 0.1)
-        self.y = np.sin(self.x)
+def change_abs_to_relative(abs_yaw, current_yaw):
+    if abs(abs_yaw - current_yaw) < math.pi:
+        return abs_yaw - current_yaw
+    left_offset = 2 * math.pi - current_yaw + abs_yaw
+    right_offset = 2 * math.pi - abs_yaw + current_yaw
+    if left_offset < right_offset:
+        return -left_offset
+    else:
+        return right_offset
     
-    def update(self, x: np.ndarray, y: np.ndarray):
-        self.x = x
-        self.y = y
-        plt.clf()
-        plt.plot(self.x, self.y)
-        plt.pause(0.001)
-        plt.ioff()
-        
-        
-   
-a = Plt_Dynamic_Window() 
-# 创建循环
-for i in range(30):
-    x = np.arange(0, 10, 0.1) + i
-    y = np.sin(x)
-    a.update(x,y)
+    
+for abs_yaw in np.arange(0, 2 * math.pi, 0.1):
+    current_yaw = 0.5 * math.pi
     
 
-    
-    
+    result = change_abs_to_relative(abs_yaw, current_yaw)
+    print(f"abs_yaw: {abs_yaw:.3f}, current_yaw: {current_yaw:3f}, result: {result:.3f}")
