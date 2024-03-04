@@ -14,3 +14,7 @@ class ArmorPos:
 class CarPos:
     def __init__(self):
         pass
+    
+class ElectricsysCom:
+    def __init__(self):
+        pass

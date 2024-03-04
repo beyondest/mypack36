@@ -34,28 +34,28 @@ class Node_Com(Node,Custom_Context_Obj):
         
         if msg.sof == 'A' :
             self.last_sub_topic_time = time.time()
-            self.port.params.action_data.fire_times = msg.fire_times
-            self.port.params.action_data.abs_pitch_10000 = int(msg.target_abs_pitch * 10000)
-            self.port.params.action_data.abs_yaw_10000 = int((msg.target_abs_yaw - np.pi) * 10000)  # due to int16 is from -32768 to 32767, so we need to convert angle to this range
-            self.port.params.action_data.reserved_slot = msg.reserved_slot
+            self.port.action_data.fire_times = msg.fire_times
+            self.port.action_data.abs_pitch_10000 = int(msg.target_abs_pitch * 10000)
+            self.port.action_data.abs_yaw_10000 = int((msg.target_abs_yaw - np.pi) * 10000)  # due to int16 is from -32768 to 32767, so we need to convert angle to this range
+            self.port.action_data.reserved_slot = msg.reserved_slot
             minute, second, second_frac = TRANS_UNIX_TIME_TO_T(msg.reach_unix_time, self.zero_unix_time)
-            self.port.params.action_data.target_minute = minute
-            self.port.params.action_data.target_second = second
-            self.port.params.action_data.target_second_frac_10000 = int(second_frac * 10000)
+            self.port.action_data.target_minute = minute
+            self.port.action_data.target_second = second
+            self.port.action_data.target_second_frac_10000 = int(second_frac * 10000)
             self.get_logger().info(f"SOF A from Decision maker")
             
             if msg.fire_times > 0:
                 self.port.send_msg(msg.sof)
-                self.port.params.action_data.fire_times = 0
+                self.port.action_data.fire_times = 0
                 self.get_logger().info(f"Fire : {msg.fire_times} times")
         
                 
         elif msg.sof == 'S':
             cur_unix_time = time.time()
             minute, second, second_frac = TRANS_UNIX_TIME_TO_T(cur_unix_time, self.zero_unix_time)
-            self.port.params.syn_data.present_minute = minute
-            self.port.params.syn_data.present_second = second
-            self.port.params.syn_data.present_second_frac_10000 = int(second_frac * 10000)
+            self.port.syn_data.present_minute = minute
+            self.port.syn_data.present_second = second
+            self.port.syn_data.present_second_frac_10000 = int(second_frac * 10000)
             self.port.send_msg(msg.sof)
             self.get_logger().debug(f"Sync time : {cur_unix_time:.3f}")
             self.get_logger().info(f"SOF S from Decision maker")
@@ -65,9 +65,9 @@ class Node_Com(Node,Custom_Context_Obj):
             self.get_logger().error(f"Unknown sof {msg.sof}")
         
     def init_synchronization_time(self):
-        self.port.params.syn_data.present_minute = 0
-        self.port.params.syn_data.present_second = 0
-        self.port.params.syn_data.present_second_frac_10000  = 0
+        self.port.syn_data.present_minute = 0
+        self.port.syn_data.present_second = 0
+        self.port.syn_data.present_second_frac_10000  = 0
         self.zero_unix_time = time.time()
         
         self.declare_parameter('zero_unix_time',self.zero_unix_time)
@@ -80,14 +80,14 @@ class Node_Com(Node,Custom_Context_Obj):
         cur_time = time.time()
         if cur_time - self.last_sub_topic_time > 0.5:
             next_time = cur_time + self.port.params.communication_delay
-            self.port.params.action_data.fire_times = 0
-            self.port.params.action_data.abs_pitch_10000 = int(self.port.params.pos_data.present_pitch * 10000)
-            self.port.params.action_data.abs_yaw_10000 = int((self.port.params.pos_data.present_yaw - np.pi) * 10000)  # due to int16 is from -32768 to 32767, so we need to convert angle to this range
-            self.port.params.action_data.reserved_slot = 0
+            self.port.action_data.fire_times = 0
+            self.port.action_data.abs_pitch_10000 = int(self.port.pos_data.present_pitch * 10000)
+            self.port.action_data.abs_yaw_10000 = int((self.port.pos_data.present_yaw - np.pi) * 10000)  # due to int16 is from -32768 to 32767, so we need to convert angle to this range
+            self.port.action_data.reserved_slot = 0
             minute, second, second_frac = TRANS_UNIX_TIME_TO_T(next_time, self.zero_unix_time)
-            self.port.params.action_data.target_minute = minute
-            self.port.params.action_data.target_second = second
-            self.port.params.action_data.target_second_frac_10000 = int(second_frac * 10000)
+            self.port.action_data.target_minute = minute
+            self.port.action_data.target_second = second
+            self.port.action_data.target_second_frac_10000 = int(second_frac * 10000)
             self.port.send_msg('A')
             self.get_logger().debug(f"Decision too old, last sub time {self.last_sub_topic_time:.3f}, cur_time {cur_time:.3f}")
         else:

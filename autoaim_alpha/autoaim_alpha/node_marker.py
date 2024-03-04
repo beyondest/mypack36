@@ -16,7 +16,7 @@ class Armor_Marker:
         self.armor_id = armor_id
         self.marker = Marker()
         self.marker.header.frame_id = "map"
-        self.marker.header.stamp = self.get_clock().now().to_msg()
+        
         self.marker.ns = "basic_shapes"
         self.marker.id = 0
         self.marker.type = Marker.CUBE
@@ -54,6 +54,7 @@ class Node_Marker(Node,Custom_Context_Obj):
         for enemy_car in self.enemy_car_list:
             for i in range(enemy_car['armor_nums']):
                 armor_marker = Armor_Marker(enemy_car['armor_name'],i)
+                armor_marker.marker.header.stamp = self.get_clock().now().to_msg()
                 self.marker_list.append(armor_marker)
         
         

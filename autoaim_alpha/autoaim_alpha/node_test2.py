@@ -3,13 +3,13 @@ from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped,TransformStamped,PointStamped
 from tf2_msgs.msg import TFMessage
 import math
-from tutorial_interfaces.msg import *
+from autoaim_interface.msg import ElectricsysState
 class PosePublisher(Node):
 
     def __init__(self):
         super().__init__('pose_publisher')
         self.publisher_ = self.create_publisher(PoseStamped, 'pose', 10)
-        self.pub2 = self.create_publisher(Num, 'test', 10)
+        self.pub2 = self.create_publisher(ElectricsysState, 'test', 10)
         timer_period = 0.01  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
         self.time = 0.0
@@ -33,8 +33,8 @@ class PosePublisher(Node):
         self.time += 0.1
         self.get_logger().info('Publishing: "%s"' % msg)
         
-        msg2 = Num()
-        msg2.num = 1
+        msg2 = ElectricsysState()
+        msg2.cur_pitch = 0.1
         
         self.pub2.publish(msg2)
         self.get_logger().info('Publishing: "%s"' % msg2)

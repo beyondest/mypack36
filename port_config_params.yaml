@@ -1,0 +1,4 @@
+baudrate: 115200
+bitesize: 8
+communication_delay: 0.05
+port_abs_path: /dev/ttyUSB0

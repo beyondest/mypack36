@@ -15,9 +15,7 @@ class Port_Params(Params):
         self.port_abs_path = '/dev/ttyUSB0'
         self.bitesize =8
         self.baudrate = 115200
-        self.action_data = action_data()
-        self.syn_data = syn_data()
-        self.pos_data = pos_data()
+        
         self.communication_delay = 0.05
         
 
@@ -26,25 +24,33 @@ class Port:
     def __init__(self,
                  mode:str = 'Dbg',
                  port_config_yaml_path:Union[str,None]=None) -> None:
-        CHECK_INPUT_VALID(mode,['Dbg','Rel'])
+        CHECK_INPUT_VALID(mode,'Dbg','Rel')
         self.params = Port_Params()
         if port_config_yaml_path is not None:
             self.params.load_params_from_yaml(port_config_yaml_path)
-
-        self.ser = serial.Serial(
-                                port=self.params.port_abs_path,
-                                baudrate=self.params.baudrate,
-                                bytesize=self.params.bitesize,
-                                parity=serial.PARITY_NONE,
-                                stopbits=serial.STOPBITS_ONE,
-                                xonxoff=False,
-                                rtscts=False,
-                                write_timeout=1,
-                                dsrdtr=None,
-                                inter_byte_timeout=0.1,
-                                exclusive=None, # 1 is ok for one time long communication, but None is not, I dont know why!!!!
-                                timeout=1
-                                ) 
+        
+        self.action_data = action_data()
+        self.syn_data = syn_data()
+        self.pos_data = pos_data()
+        
+        try:
+            self.ser = serial.Serial(
+                                    port=self.params.port_abs_path,
+                                    baudrate=self.params.baudrate,
+                                    bytesize=self.params.bitesize,
+                                    parity=serial.PARITY_NONE,
+                                    stopbits=serial.STOPBITS_ONE,
+                                    xonxoff=False,
+                                    rtscts=False,
+                                    write_timeout=1,
+                                    dsrdtr=None,
+                                    inter_byte_timeout=0.1,
+                                    exclusive=None, # 1 is ok for one time long communication, but None is not, I dont know why!!!!
+                                    timeout=1
+                                    ) 
+        
+        except:
+            lr1.critical(f"Failed to open serial port {self.params.port_abs_path}")
         
         
     def send_msg(self,sof:str = 'A'):
@@ -89,5 +95,8 @@ class Port:
     
     def port_close(self):
         self.ser.close()
+        
+    def save_params_to_yaml(self,yaml_path:str)->None:
+        self.params.save_params_to_yaml(yaml_path)
         
     

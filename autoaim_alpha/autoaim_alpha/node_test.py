@@ -4,8 +4,7 @@ from geometry_msgs.msg import PoseStamped
 from visualization_msgs.msg import Marker
 from geometry_msgs.msg import Point
 from std_msgs.msg import ColorRGBA
-from tutorial_interfaces.msg import Num
-
+from autoaim_interface.msg import ElectricsysState
 
 class MarkerPublisher(Node):
 
@@ -13,7 +12,7 @@ class MarkerPublisher(Node):
         super().__init__('marker_publisher')
         self.publisher_ = self.create_publisher(Marker, 'visualization_marker', 10)
         self.subscription = self.create_subscription(PoseStamped, 'pose', self.listener_callback, 10)
-        self.sub2 = self.create_subscription(Num, 'test', self.listener_callback2, 10)
+        self.sub2 = self.create_subscription(ElectricsysState, 'test', self.listener_callback2, 10)
         
         
 
@@ -39,7 +38,7 @@ class MarkerPublisher(Node):
         self.get_logger().info('Marker published')
     
     
-    def listener_callback2(self, msg: Num):
+    def listener_callback2(self, msg: ElectricsysState):
         self.get_logger().info('Electricity state received: %s' % msg)
         
 
