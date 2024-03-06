@@ -25,7 +25,7 @@ mode:
 3: multi input, torch reference
 
 """
-mode = 3
+mode = 0
 
 
 
@@ -36,7 +36,7 @@ if mode == 0:
     onnx_engine = Onnx_Engine(onnx_filename,if_offline=False)
 
     ori_img = cv2.imread(single_file_path)
-
+    print(ori_img.shape)
     final_input = trans(ori_img)
     final_input = torch.unsqueeze(final_input,dim=0)
     final_input = final_input.numpy()

@@ -21,3 +21,5 @@ print(expand_trapzezoid)
 draw_big_rec_list([ret1,ret2,expand_trapzezoid],c.img)
 c.show()
 
+
+

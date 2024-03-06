@@ -22,7 +22,7 @@ pitch                : -0.29         -16deg
 """
 
 
-b = Ballistic_Predictor(params_yaml_path="ballistic_params.yaml",
+b = Ballistic_Predictor(params_yaml_path="autoaim_alpha/config/other_config/ballistic_params.yaml",
                         if_show_ballistic_trajectory=False)
 
 #b.cal_max_shooting_hei_above_ground(b.params.pitch_range[1])
@@ -42,8 +42,8 @@ for i in np.arange(0.25,11,0.01):
 
     b._update_camera_pos_in_gun_pivot_frame(cur_yaw, cur_pitch)
     target_pos_in_gun_pivot_frame = b.params.camera_pos_in_gun_pivot_frame + target_pos
-    tvec_zoy = target_pos_in_gun_pivot_frame[[2,1]]
-    target_z_in_gun_pivot_frame = tvec_zoy[0]
+    tvec_yoz = target_pos_in_gun_pivot_frame[[1,2]]
+    target_z_in_gun_pivot_frame = tvec_yoz[0]
     print(f"Target Z: {target_z_in_gun_pivot_frame}")
     
     # not accurate but fast result
@@ -59,10 +59,10 @@ for i in np.arange(0.25,11,0.01):
     # most accurate result
     #accurate_result = b.get_fire_yaw_pitch(target_pos,cur_yaw,cur_pitch)
 
-    [hei_diff,t],_ = b._R_K4_air_drag_ballistic_model(fast_result[1],tvec_zoy)
+    [hei_diff,t],_ = b._R_K4_air_drag_ballistic_model(fast_result[1],tvec_yoz)
     print(hei_diff,t)
 
-    #[hei_diff,t],solve_time = b._R_K4_air_drag_ballistic_model(accurate_result[1],tvec_zoy)
+    #[hei_diff,t],solve_time = b._R_K4_air_drag_ballistic_model(accurate_result[1],tvec_yoz)
     #print(hei_diff,t,solve_time)
     x.append(target_z_in_gun_pivot_frame)
     hei_error.append(hei_diff)

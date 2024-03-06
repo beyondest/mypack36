@@ -19,7 +19,7 @@ muzzle_y_len: 0.0
 newton_dx: 0.001
 # height error of bullet predicted by newton's method
 newton_error_tolerance: 0.011
-newton_max_iter: 6
+newton_max_iter: 5
 pitch_range:
 - -0.7853981633974483
 - 0.7853981633974483
@@ -27,3 +27,11 @@ target_min_hei_above_ground: 0.05
 yaw_range:
 - 0
 - 6.283185307179586
+
+
+camera_init_theta: null
+muzzle_init_theta: null
+camera_radius: null
+muzzle_radius: null
+camera_pos_in_gun_pivot_frame: null
+muzzle_pos_in_gun_pivot_frame: null

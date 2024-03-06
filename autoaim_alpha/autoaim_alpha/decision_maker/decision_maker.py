@@ -8,10 +8,7 @@ class Decision_Maker_Params(Params):
     def __init__(self) -> None:
         super().__init__()
         
-        self.enemy_car_list = [{'armor_name':'3x','armor_distance':[0.4,0.5],'armor_nums': 4},
-                        {'armor_name':'4x','armor_distance': [0.5,0.5],'armor_nums': 2}]
 
-        
 
         self.cur_yaw = 0.0
         self.cur_pitch = 0.0
@@ -32,18 +29,25 @@ class Decision_Maker_Params(Params):
 class Decision_Maker:
     def __init__(self,
                  mode:str,
-                 decision_maker_params_yaml_path:Union[str,None]
+                 decision_maker_params_yaml_path:Union[str,None] = None,
+                 enemy_car_list:list = None
                  ) -> None:
         CHECK_INPUT_VALID(mode,"Dbg",'Rel')
+        if enemy_car_list is None:
+            lr1.critical("enemy_car_list is None")
+            
         self.mode = mode
         self.params = Decision_Maker_Params()
-        
+        self.enemy_car_list = enemy_car_list
         if decision_maker_params_yaml_path is not None:
             self.params.load_params_from_yaml(decision_maker_params_yaml_path)
             
         self.armor_state_predict_list = [Armor_Params(enemy_car['armor_name'],armor_id) \
-                                                        for enemy_car in self.params.enemy_car_list \
+                                                        for enemy_car in self.enemy_car_list \
                                                             for armor_id in range(enemy_car['armor_nums'])]
+        
+        
+
         
     def update_enemy_side_info(self,
                       armor_name:str,
@@ -91,10 +95,14 @@ class Decision_Maker:
         
         nearest_armor_params = min(self.armor_state_predict_list, key=lambda x: x.tvec[2])
         if self.mode == 'Dbg':
-            for armor_params in self.armor_state_predict_list:
-                lr1.debug(f"armor {armor_params.name} id {armor_params.id} : {armor_params.tvec}, t : {armor_params.time}")
+            pass
+            #for armor_params in self.armor_state_predict_list:
+                #lr1.debug(f"Decision_Maker : For chosen : armor {armor_params.name} id {armor_params.id} : tvec {armor_params.tvec}, t : {armor_params.time}")
                 
-        lr1.debug(f"nearest_armor_state: {nearest_armor_params}")
+        lr1.debug(f"Decision_Maker : Choosed nearest_armor_state: {nearest_armor_params.name} id {nearest_armor_params.id} : tvec {nearest_armor_params.tvec}, t : {nearest_armor_params.time}")
         
         return nearest_armor_params
+    
+    def save_params_to_yaml(self,yaml_path:str)->None:
+        self.params.save_params_to_yaml(yaml_path)
         

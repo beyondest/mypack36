@@ -28,20 +28,21 @@ class Node_Decision_Maker(Node,Custom_Context_Obj):
                                              ballistic_predictor_config_yaml_path)
         
         self.decision_maker = Decision_Maker(mode,
-                                             decision_maker_config_yaml_path)
+                                             decision_maker_config_yaml_path,
+                                             enemy_car_list)
 
         self.timer = self.create_timer(1/make_decision_freq, self.make_decision_callback)
         self.cur_yaw = 0
         self.cur_pitch = 0
+        if mode == 'Dbg':
+            self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG)
 
 
     def recv_from_ele_sys_callback(self, msg:ElectricsysState):
+        
         self.ballestic._update_camera_pos_in_gun_pivot_frame(msg.cur_yaw,msg.cur_pitch)
-        try:
-            zero_unix_offset = self.get_parameter("zero_unix_offset").get_parameter_value().double_value
-        except:
-            self.get_logger().error("Get zero_unix_offset parameter fail, use current time as zero_unix_offset")
-            zero_unix_offset = time.time()
+        zero_unix_offset = self.get_parameter("zero_unix_offset").get_parameter_value().double_value
+
         
         minute,second,second_frac = TRANS_UNIX_TIME_TO_T(msg.unix_time,zero_unix_offset)
         self.decision_maker.update_our_side_info(msg.cur_yaw,
@@ -66,12 +67,18 @@ class Node_Decision_Maker(Node,Custom_Context_Obj):
                                                    msg.confidence,
                                                    msg.pose.header.stamp.sec + msg.pose.header.stamp.nanosec/1e9
                                                    )
-        self.get_logger().info(f"Update enemy side info {msg.armor_name}, id {msg.armor_id}")
+        
+        #if mode == 'Dbg':
+            #self.get_logger().debug(f"Decision Maker update enemy side info {msg.armor_name}, id {msg.armor_id}")
+        
         
     def make_decision_callback(self):
         target_armor = self.decision_maker.choose_target()
         
-        rel_yaw,abs_pitch, flight_time, if_success = self.ballestic.get_fire_yaw_pitch(target_armor.tvec)
+        rel_yaw,abs_pitch, flight_time, if_success = self.ballestic.get_fire_yaw_pitch(target_armor.tvec,
+                                                                                       self.cur_yaw,
+                                                                                       self.cur_pitch)
+        
         if if_success:
             predict_time = target_armor.time
             
@@ -80,17 +87,20 @@ class Node_Decision_Maker(Node,Custom_Context_Obj):
             com_msg.reach_unix_time = predict_time
             com_msg.target_abs_pitch = abs_pitch
             yaw = rel_yaw + self.cur_yaw
-            if yaw > np.pi * 2:
+            if yaw > np.pi:
                 yaw -= np.pi * 2
-            elif yaw < 0:
+            elif yaw < -np.pi:
                 yaw += np.pi * 2
             com_msg.target_abs_yaw = yaw
             com_msg.sof = 'A'
             com_msg.reserved_slot = 0
             self.pub_ele_sys_com.publish(com_msg)
-            self.get_logger().info(f"Publish com msg: {com_msg}")
+            
+            if mode == 'Dbg':
+                self.get_logger().debug(f"Make Decision: target_armor : {target_armor.name}, id : {target_armor.id}, tvec : {target_armor.tvec}, rvec : {target_armor.rvec}, confidence : {target_armor.confidence}, time : {target_armor.time:.3f}, rel_yaw : {rel_yaw:.3f}, abs_pitch : {abs_pitch:.3f}, flight_time : {flight_time:.3f}, if_success : {if_success}, cur_yaw : {self.cur_yaw:.3f}, cur_pitch : {self.cur_pitch:.3f}, target_abs_yaw : {com_msg.target_abs_yaw}, target_abs_pitch : {com_msg.target_abs_pitch}, reach_unix_time : {com_msg.reach_unix_time:.3f}")
+            
         else:
-            self.get_logger().info(f"Get fire yaw pitch fail,not publish com msg, target pos: {target_armor.tvec}")
+            self.get_logger().error(f"Get fire yaw pitch fail,not publish com msg, target pos: {target_armor.tvec}")
 
     
     def _start(self):
@@ -103,7 +113,7 @@ class Node_Decision_Maker(Node,Custom_Context_Obj):
         self.destroy_node()
 
     def _errorhandler(self,exc_value):
-        print(f"Node {self.get_name()} get error {exc_value}")
+        self.get_logger().error(f"Node {self.get_name()} get error {exc_value}")
         
         
 

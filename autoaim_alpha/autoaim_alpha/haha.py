@@ -18,3 +18,7 @@ class CarPos:
 class ElectricsysCom:
     def __init__(self):
         pass
+    
+class EachDetectResult:
+    def __init__(self):
+        pass

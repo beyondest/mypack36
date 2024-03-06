@@ -18,21 +18,17 @@ class Node_Detector(Node,Custom_Context_Obj):
                  ):
         
         super().__init__(name)
-        
-        
         self.sub_img_raw = self.create_subscription(
                                             topic_img_raw['type'],
                                             topic_img_raw['name'],
                                             self.sub_img_raw_callback,
                                             topic_img_raw['qos_profile']
                                             )
-        
         self.pub_detect_result = self.create_publisher(
                                             topic_detect_result['type'],
                                             topic_detect_result['name'],
                                             topic_detect_result['qos_profile']
                                             )
-        
         self.pub_img_detected = self.create_publisher(topic_img_detected['type'],
                                              topic_img_detected['name'],
                                              topic_img_detected['qos_profile'])
@@ -44,14 +40,17 @@ class Node_Detector(Node,Custom_Context_Obj):
                                             armor_color=armor_color,
                                             mode=mode,
                                             tradition_config_folder=tradition_config_folder,
-                                            net_config_folder=net_config_folder
+                                            net_config_folder=net_config_folder,
+                                            depth_estimator_config_yaml=depth_estimator_config_yaml_path
                                              )
         
         self.pre_time = time.perf_counter()
         self.fps = 0
         self.window_name = 'result'
+        if mode == 'Dbg':
+            self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG)
         
-        
+         
     def sub_img_raw_callback(self,data):
         
         img = self.cv_bridge.imgmsg_to_cv2(data,camera_output_format)
@@ -64,7 +63,7 @@ class Node_Detector(Node,Custom_Context_Obj):
         if if_pub_img_detected:
             visualize_result = self.armor_detector.visualize(img,fps=self.fps,windows_name=None)
             self.pub_img_detected.publish(self.cv_bridge.cv2_to_imgmsg(visualize_result,camera_output_format))
-            self.get_logger().info(f"publish visualize result success")
+            self.get_logger().debug(f"publish visualize result success")
             
         
         if result is not None:
@@ -89,17 +88,14 @@ class Node_Detector(Node,Custom_Context_Obj):
                 
                 msg.detect_result.append(ed)
                 
-                
                 log_info = f"armor_name:{ed.armor_name},confidence:{ed.confidence},pos:{ed.pose.pose.position},orientation:{ed.pose.pose.orientation} time:{t.sec}s{t.nanosec/1000000}ns"
                 
-                self.get_logger().debug(log_info)
-                self.get_logger().info(f"detect spend time:{find_time}s")
+                self.get_logger().debug(f"Find target : {log_info} spend time:{find_time}s")
                     
             self.pub_img_detected.publish(msg)
-            self.get_logger().info(f"publish detect result success")
+            self.get_logger().debug(f"publish detect result success")
         else:
-            self.get_logger().info(f"no target found")
-        
+            self.get_logger().debug(f"no target found")
         
     def _start(self):
         
@@ -113,16 +109,13 @@ class Node_Detector(Node,Custom_Context_Obj):
         self.destroy_node()
 
     def _errorhandler(self,exc_value):
-        print(f"Node {self.get_name()} get error {exc_value}")
+        self.get_logger().error(f"Node {self.get_name()} get error {exc_value}")
         
         
-    
-    
 def main(args = None):
     
     rclpy.init(args=args)
     node = Node_Detector(node_detector_name)
-    
     with Custome_Context(node_detector_name,node):
         rclpy.spin(node)
     rclpy.shutdown()

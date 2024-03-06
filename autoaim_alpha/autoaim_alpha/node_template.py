@@ -52,7 +52,7 @@ class MyNode(Node,Custom_Context_Obj):
         self.destroy_node()
 
     def _errorhandler(self,exc_value):
-        print(f"Node {self.get_name()} get error {exc_value}")
+        self.get_logger().error(f"Node {self.get_name()} get error {exc_value}")
         
         
 

@@ -72,13 +72,13 @@ class Armor_Params(Params):
                  ):
         super().__init__()
         
-        self.tvec = np.zeros(3)         # in camera frame
-        self.rvec = np.zeros(3)         # in camera frame
-        self.tvec_in_car_frame = np.zeros(3)   # in car frame
-        self.rvec_in_car_frame = np.zeros(3)   # in car frame
+        self.tvec = np.zeros(3)                             # in camera frame
+        self.rvec = np.array([0.0,0.0,1.0])                 # in camera frame
+        self.tvec_in_car_frame = np.zeros(3)                # in car frame
+        self.rvec_in_car_frame = np.array([0.0,0.0,1.0])    # in car frame
         
         self.time = 0.0     
-        self.confidence = 0.0  
+        self.confidence = 0.0
         self.id = id 
         self.name = name 
         
@@ -124,7 +124,7 @@ class Car_Params(Params):
         self.car_tvec_history_list = [np.zeros(3) for i in range(self.history_depth)]   # history of car center position in camera frame
         self.car_tv_vec_history_list = [np.zeros(3) for i in range(self.history_depth)]   # history of car center velocity in camera frame
         self.car_ta_vec_history_list = [np.zeros(3) for i in range(self.history_depth)]   # history of car center acceleration in camera frame
-        self.car_rvec_history_list = [np.zeros(3) for i in range(self.history_depth)]   # history of armor_id 0 rotation position in camera frame
+        self.car_rvec_history_list = [np.array([0.0,0.0,1.0]) for i in range(self.history_depth)]   # history of car rotation position in camera frame for i in range(self.history_depth)]   # history of armor_id 0 rotation position in camera frame
         self.car_rv_vec_history_list = [np.zeros(3) for i in range(self.history_depth)]   # history of armor_id 0 rotation velocity in camera frame
         self.car_ra_vec_history_list = [np.zeros(3) for i in range(self.history_depth)]   # history of armor_id 0 rotation acceleration in camera frame
         self.car_rotation_speed_history_list = [0.0 for i in range(self.history_depth)]   # history of car rotation speed in car frame
@@ -151,20 +151,21 @@ class Observer_Params(Params):
         
         super().__init__()
         
-        # armor_distance : [x_distance, y_distance], x distance means maximum efficency direction of robot chassis
-        self.enemy_car_list = [{'armor_name':'3x','armor_distance':[0.4,0.5],'armor_nums': 4},
-                               {'armor_name':'4x','armor_distance': [0.5,0.5],'armor_nums': 2}]
+
         
         self.Q_scale = 0.1
         self.R_scale_dis_diff_denominator = 0.1 # unit: meter; R_scale = dis_diff / R_scale_dis_diff_denominator
         
-        self.H = np.eye(3)
+        self.H = [[1.0,0.0,0.0],
+                  
+                  [0.0,1.0,0.0],
+                  
+                  [0.0,0.0,1.0]]
         
         # max distance variation of armor distance in x and y axis, if 0, forbid armor distance change
         self.armo_distance_variation = [0.05,0.05]
         
-        self.history_depth = 10
-        self.predict_frequency = 10
+        self.history_depth = 5
         self.if_force_correct_after_detect = 1
         self.min_continous_num_to_apply_predict = 3
         self.min_dis_between_continous_detection = 0.1 # unit: meter
@@ -178,13 +179,13 @@ class Observer_Params(Params):
         
         # confidence = score/score_criterion
         self.score_criterion_for_automatic_matching = 200
-        
+        self.wrongpic_threshold_dis = 0.2 # unit: meter
         self.armor_name_to_car_params = {}
         
         
-    def init_each_car_params(self):
-        
-        for i in self.enemy_car_list:
+    def init_each_car_params(self,enemy_car_list:list):
+        self.H = np.array(self.H)
+        for i in enemy_car_list:
             if i['armor_name'] in self.armor_name_to_car_params.keys():
                 lr1.critical(f"Observer: armor_name {i['armor_name']} already exists in car_params")
                 raise ValueError("armor_name already exists in car_params")
@@ -202,31 +203,37 @@ class Observer_Params(Params):
             self.armor_name_to_car_params.update(dic)
             lr1.info(f"Observer: Init {i['armor_name']} car params")
         
-        lr1.info(f"Observer: All Enemy Car Nums: {len(self.enemy_car_list)}  ")
+        lr1.info(f"Observer: All Enemy Car Nums: {len(enemy_car_list)}  ")
+        
+       
     
     
 class Observer:
     
     def __init__(self,
                  mode:str = 'Dbg',
-                 observer_params_yaml_path:Union[str,None]=None
+                 observer_params_yaml_path:Union[str,None]=None,
+                 enemy_car_list:list = None
                  ):
         
         CHECK_INPUT_VALID(mode,'Dbg','Rel')
+        if enemy_car_list is None:
+            lr1.critical(f"Observer: enemy_car_list is None")
         self.mode = mode
         self.observer_params = Observer_Params()
         self.latest_focus_armor_name = None
         self.latest_focus_armor_index = None
         self.latest_focus_time = None
-        
+        self.enemy_car_list = enemy_car_list
         if observer_params_yaml_path is not None:
             self.observer_params.load_params_from_yaml(observer_params_yaml_path)
-            self.observer_params.init_each_car_params()
+            self.observer_params.init_each_car_params(enemy_car_list)
         
         else:
             lr1.warning(f"Observer: observer_params_yaml_path is None, use default params")
             self.observer_params.init_each_car_params()
-        
+            
+            
     
     def update_by_detection_list(self,
                all_targets_list:list):
@@ -245,49 +252,58 @@ class Observer:
                                        target['rvec'],
                                        target['time'])
             
-    def update_by_correct_all(self):
+    def update_by_correct_all(self)->dict:
         """
         Args:
             all_targets_list (list): list of all targets, each target is a dict, including:
                 'armor_name':str
         """
-        
-        for target in self.observer_params.enemy_car_list:
-            armor_name = target['armor_name']
-            armor_nums = target['armor_nums']
-            for i in range(armor_nums):
-                self.update_by_correct(armor_name, i)
+        armor_name_to_idx = {}
+        for target in self.enemy_car_list:
             
+            armor_name = target['armor_name']
+            latest_focus_armor_id = self.__get_latest_focus_armor_idx(armor_name)
+            self.update_by_correct(armor_name, latest_focus_armor_id)
+            
+            t = self.observer_params.armor_name_to_car_params[armor_name].armor_idx_to_correct_history[latest_focus_armor_id][0].time
+            tvec = self.observer_params.armor_name_to_car_params[armor_name].armor_idx_to_correct_history[latest_focus_armor_id][0].tvec
+            rvec = self.observer_params.armor_name_to_car_params[armor_name].armor_idx_to_correct_history[latest_focus_armor_id][0].rvec
+            confidence = self.observer_params.armor_name_to_car_params[armor_name].armor_idx_to_correct_history[latest_focus_armor_id][0].confidence
+            
+            self._update_other_armor_state_by_one_armor(armor_name, 
+                                                        latest_focus_armor_id, 
+                                                        tvec, 
+                                                        rvec, 
+                                                        t, 
+                                                        confidence, 
+                                                        self.observer_params.armor_name_to_car_params[armor_name].armor_idx_to_correct_history)
+            armor_name_to_idx.update({armor_name:latest_focus_armor_id})
+        
+        return armor_name_to_idx   
     
     def update_by_detection(self,
                             armor_name:str,
                             tvec:np.ndarray,
                             rvec:np.ndarray,
-                            time:float):
+                            t:float):
         
         
-        right_armor_name,right_armor_idx,confidence = self._automatic_matching(armor_name, tvec, rvec, time)
+        right_armor_name,right_armor_idx,confidence = self._automatic_matching(armor_name, tvec, rvec, t)
         
         armor_nums = self.observer_params.armor_name_to_car_params[right_armor_name].armor_nums
-        tvec_list,rvec_list= get_other_face_center_pos(   tvec,
-                                                rvec,
-                                                self.observer_params.armor_name_to_car_params[right_armor_name].armor_distance[0],
-                                                self.observer_params.armor_name_to_car_params[right_armor_name].armor_distance[1],
-                                                armor_nums)
+        armor_idx_to_list = self.observer_params.armor_name_to_car_params[right_armor_name].armor_idx_to_detect_history
         
-        for i in range(armor_nums):
-            armor_index = i + right_armor_idx
-            if armor_index >= armor_nums:
-                armor_index -= armor_nums
-            detect_history_list = self.observer_params.armor_name_to_car_params[right_armor_name].armor_idx_to_detect_history[armor_index]
-            self._update_armor_history_params(  detect_history_list, 
-                                        tvec_list[i], 
-                                        rvec_list[i], 
-                                        time, 
-                                        confidence)
-            
+        self._update_other_armor_state_by_one_armor(right_armor_name, 
+                                                    right_armor_idx, 
+                                                    tvec, 
+                                                    rvec, 
+                                                    t, 
+                                                    confidence, 
+                                                    armor_idx_to_list
+                                                    )
+        
         if self.mode == 'Dbg':
-            lr1.info(f"Observer: Update {right_armor_name} car {right_armor_idx} armor detect_params at time {time} with confidence {confidence}")
+            lr1.info(f"Observer: Update armor detect params {right_armor_name} at t {t} with confidence {confidence}")
         
         if self.observer_params.if_force_correct_after_detect:
             for i in range(armor_nums):
@@ -295,25 +311,23 @@ class Observer:
             
         self.latest_focus_armor_name = right_armor_name
         self.latest_focus_armor_index = right_armor_idx
-        self.latest_focus_time = time
+        self.latest_focus_t = t
         
         
-    def update_by_correct(self,
-                              armor_name:str,
-                              armor_idx:int):
+    def update_by_correct(  self,
+                            armor_name:str,
+                            armor_idx:int):
         
         self._update_car_params_and_armor_relative_params()
         car_params = self.observer_params.armor_name_to_car_params[armor_name]
-        detect_history_list = car_params.armor_idx_to_detect_history[armor_idx]
         correct_history_list = car_params.armor_idx_to_correct_history[armor_idx]
         
-        tvec_correct, rvec_correct, cur_time, confidence = self.__cal_correct_params(detect_history_list, correct_history_list)
+        tvec_correct, rvec_correct, cur_time, confidence = self.__cal_correct_params(armor_name, armor_idx)
         self._update_armor_history_params(correct_history_list, tvec_correct, rvec_correct, cur_time, confidence)
                 
         if self.mode == 'Dbg':
             
-            cur_time = time.time()
-            lr1.info(f"Observer: Update {armor_name} car {armor_idx} armor correct_params at time {cur_time} with confidence {confidence}") 
+            lr1.debug(f"Observer: Update armor correct params {armor_name} id {armor_idx} at time {cur_time:.3f} with confidence {confidence}") 
     
             
     def get_car_latest_state(self)->list:
@@ -327,6 +341,7 @@ class Observer:
                 car_center_tv_vec : (armor id 0 tv_vec) in camera frame
                 car_rotation_speed : in car frame
                 car_time:float
+                confidence : average confidence of all armors
         """
         car_list = []
         for armor_name in self.observer_params.armor_name_to_car_params.keys():
@@ -335,19 +350,25 @@ class Observer:
             car_center_tv_vec = self.observer_params.armor_name_to_car_params[armor_name].car_tv_vec_history_list[0]
             car_rotation_speed = self.observer_params.armor_name_to_car_params[armor_name].car_rotation_speed_history_list[0] 
             car_time = self.observer_params.armor_name_to_car_params[armor_name].car_time_history_list[0]
+            car_confidence = np.mean(self.observer_params.armor_name_to_car_params[armor_name].car_confidence_history_list)
             
             car_list.append({'armor_name':armor_name,
                              'car_center_tvec':car_center_tvec,
                              'car_center_rvec':car_center_rvec,
                              'car_center_tv_vec':car_center_tv_vec,
                              'car_rotation_speed':car_rotation_speed,
-                             'car_time': car_time })
+                             'car_time': car_time ,
+                             'car_confidence':car_confidence})
         return car_list
     
     def get_armor_latest_state(self,
                                if_correct_state:bool = True)->list:
         """
 
+        Args:
+            if_correct_state : 
+                True: get correct state
+                False: get detect state
         Returns:
             list of dict:
                 armor_name:str,
@@ -381,7 +402,7 @@ class Observer:
                                     'armor_id':armor_id,
                                     'armor_tvec':armor_detect_latest_params.tvec,
                                     'armor_rvec':armor_detect_latest_params.rvec,
-                                    'armor_confidence':0,
+                                    'armor_confidence':armor_detect_latest_params.confidence,
                                     'armor_time':armor_detect_latest_params.time})
 
             return armor_list
@@ -439,17 +460,17 @@ class Observer:
         correct_history_list = self.observer_params.armor_name_to_car_params[armor_name].armor_idx_to_detect_history[armor_index]
         predict_period = specific_time - correct_history_list[0].time
         
-        tv_vec = (correct_history_list[0].tvec - correct_history_list[1].tvec) / predict_period
-        tv_vec_old = (correct_history_list[1].tvec - correct_history_list[2].tvec) / predict_period
-        ta_vec = (tv_vec - tv_vec_old) / predict_period
+        tv_vec = (correct_history_list[0].tvec - correct_history_list[1].tvec) / predict_period if predict_period > 0 else np.zeros(3)
+        tv_vec_old = (correct_history_list[1].tvec - correct_history_list[2].tvec) / predict_period if predict_period > 0 else np.zeros(3)
+        ta_vec = (tv_vec - tv_vec_old) / predict_period if predict_period > 0 else np.zeros(3)
         
-        tvec = correct_history_list[0].tvec + tv_vec * specific_time + 0.5 * ta_vec * specific_time**2
+        tvec = correct_history_list[0].tvec + tv_vec * predict_period + 0.5 * ta_vec * predict_period**2
         
-        rv_vec = (correct_history_list[0].rvec - correct_history_list[1].rvec) / predict_period
-        rv_vec_old = (correct_history_list[1].rvec - correct_history_list[2].rvec) / predict_period
-        ra_vec = (rv_vec - rv_vec_old) / predict_period
+        rv_vec = (correct_history_list[0].rvec - correct_history_list[1].rvec) / predict_period if predict_period > 0 else np.zeros(3)
+        rv_vec_old = (correct_history_list[1].rvec - correct_history_list[2].rvec) / predict_period if predict_period > 0 else np.zeros(3)
+        ra_vec = (rv_vec - rv_vec_old) / predict_period if predict_period > 0 else np.zeros(3)
         
-        rvec = correct_history_list[0].rvec + rv_vec * specific_time + 0.5 * ra_vec * specific_time**2
+        rvec = correct_history_list[0].rvec + rv_vec * predict_period + 0.5 * ra_vec * predict_period**2
         
         return tvec,rvec
     
@@ -477,10 +498,13 @@ class Observer:
                 armor_correct_latest_params = armor_correct_history_list[0]
                 
                 score_obj_name = armor_name + '_' + str(armor_id)
+                
                 attributes_list = [ armor_name,
                                     armor_correct_latest_params.tvec,
                                     armor_correct_latest_params.rvec,
                                     armor_correct_latest_params.confidence]
+                
+                
                 reference_list =  [ detect_armor_name,
                                     tvec,
                                     rvec,
@@ -506,11 +530,28 @@ class Observer:
         
         if self.mode == 'Dbg':
             
-            lr1.info(f"Observer :\nDetection result: {detect_armor_name} \nAutomatic matching result: {right_armor_name} {right_armor_idx} with confidence {confidence}")
-        
+            lr1.debug(f"Observer : Automatic matching : detection result: {detect_armor_name} \nautomatic matching result: {right_armor_name} {right_armor_idx} with confidence {confidence}")
+           
+            
         return right_armor_name,right_armor_idx,confidence
 
+    def _if_wrong_pic(self,
+                    detect_armor_name:str,
+                    tvec:np.ndarray,
+                    rvec:np.ndarray)->bool:
+        if detect_armor_name == 'wrongpic':
+            for car_params in self.observer_params.armor_name_to_car_params.values():
+                for armor_idx in car_params.armor_idx_to_correct_history:
+                    if np.linalg.norm(tvec - car_params.armor_idx_to_correct_history[armor_idx][0].tvec) < self.observer_params.wrongpic_threshold_dis:
+                        return False
+                    
+            return True
+        
+        else:
+            return False
+                    
 
+        
     def _update_armor_history_params(self,
                             armor_list:list,
                             tvec:np.ndarray,
@@ -518,7 +559,7 @@ class Observer:
                             time:float,
                             confidence:float):
         
-        new_armor_params = Armor_Params(armor_list[0].id)
+        new_armor_params = Armor_Params(armor_list[0].name,armor_list[0].id)
         new_armor_params.tvec = tvec
         new_armor_params.rvec = rvec
         new_armor_params.time = time
@@ -535,7 +576,7 @@ class Observer:
             rvec_list = []
             confidence_list = []
             
-            cur_time = max([armor_params.time for armor_params in car_params.armor_idx_to_correct_history[0]])
+            cur_time = max([car_params.armor_idx_to_correct_history[idx][0].time for idx in car_params.armor_idx_to_correct_history.keys()])
             
             period = cur_time - car_params.car_time_history_list[0]
             for armor_idx in car_params.armor_idx_to_correct_history:
@@ -546,12 +587,12 @@ class Observer:
                 confidence_list.append(latest_correct_armor_params.confidence)
                     
             car_tvec = np.mean(np.array(tvec_list),axis=0)
-            car_tv_vec = (car_tvec - car_params.car_tvec_history_list[0]) / period
-            car_ta_vec = (car_tv_vec - car_params.car_tvec_history_list[0]) / period
+            car_tv_vec = (car_tvec - car_params.car_tvec_history_list[0]) / period if period > 0 else np.zeros(3)
+            car_ta_vec = (car_tv_vec - car_params.car_tvec_history_list[0]) / period if period > 0 else np.zeros(3)
             
             car_rvec = rvec_list[0]
-            car_rv_vec = (car_rvec - car_params.car_rvec_history_list[0])/ period
-            car_ra_vec = (car_rv_vec - car_params.car_rv_vec_history_list[0]) / period
+            car_rv_vec = (car_rvec - car_params.car_rvec_history_list[0])/ period if period > 0 else np.zeros(3)
+            car_ra_vec = (car_rv_vec - car_params.car_rv_vec_history_list[0]) / period if period > 0 else np.zeros(3)
             
             for armor_idx in car_params.armor_idx_to_correct_history:
                 
@@ -575,12 +616,9 @@ class Observer:
             
             if self.mode == 'Dbg':
                 
-                lr1.info(f"Observer: Update {armor_name} car params at time {cur_time}")
+                lr1.debug(f"Observer: Update car {armor_name} params at time {cur_time}")
             
-        if self.mode == 'Dbg':
-            
-            lr1.info(f"Observer: Update {armor_name} car latent_params at time {cur_time}")
-            
+
             
     def __cal_correct_params(self,
                     armor_name:str,
@@ -606,16 +644,22 @@ class Observer:
         detect_history_list = self.observer_params.armor_name_to_car_params[armor_name].armor_idx_to_detect_history[armor_idx]
         correct_history_list = self.observer_params.armor_name_to_car_params[armor_name].armor_idx_to_correct_history[armor_idx]
         
-        if_focus = self.__check_if_armor_is_focused(detect_history_list[0].name,detect_history_list[0].id)
+        focus_period = self.__get_armor_last_focus_period(detect_history_list[0].name,detect_history_list[0].id)
         
         # actually , this is correct time
-        cur_time = detect_history_list[0].time
-        # only when you use _update_by_predition without _update_by_detection, this will happen
-        if not if_focus:
+        cur_time = time.time()
+        
+        # target lost
+        if focus_period > 1:
+            tvec_correct = correct_history_list[0].tvec
+            rvec_correct = correct_history_list[0].rvec
+            confidence = 0
+        # target blink but not lost
+        elif focus_period > 0.1 and focus_period < 1:
             tvec_correct,rvec_correct = self.predict_armor_state_by_itself(armor_name,armor_idx,cur_time)
             confidence = 0
-            
-        # every time you use _update_by_detection, this will happen
+        
+        # target focused
         else:
             
             tvec_kf = self.observer_params.armor_name_to_car_params[armor_name].armor_idx_to_tvec_kf[armor_idx]
@@ -635,7 +679,6 @@ class Observer:
                 
                 confidence = 0
             
-            
             else:
                 period_new = cur_time - correct_history_list[0].time  
                 
@@ -645,7 +688,8 @@ class Observer:
                     dis = np.linalg.norm(detect_history_list[id].tvec - detect_history_list[id + 1].tvec)
                     R_scale = dis / self.observer_params.R_scale_dis_diff_denominator
                     R = np.eye(3) * R_scale
-                    tv_vec = (detect_history_list[id].tvec - detect_history_list[id + 1].tvec) / (detect_history_list[id].time - detect_history_list[id + 1].time)
+                    detect_period = detect_history_list[id].time - detect_history_list[id + 1].time
+                    tv_vec = (detect_history_list[id].tvec - detect_history_list[id + 1].tvec) / detect_period if detect_period > 0 else np.zeros(3)
                     X_bias = tv_vec * period_new
                     A = np.eye(3)
                     Z = detect_history_list[id].tvec
@@ -655,7 +699,7 @@ class Observer:
                     dis = np.linalg.norm(detect_history_list[id].rvec - detect_history_list[id + 1].rvec)
                     R_scale = dis / self.observer_params.R_scale_dis_diff_denominator
                     R = np.eye(3) * R_scale
-                    rv_vec = (detect_history_list[id].rvec - detect_history_list[id + 1].rvec) / (detect_history_list[id].time - detect_history_list[id + 1].time)
+                    rv_vec = (detect_history_list[id].rvec - detect_history_list[id + 1].rvec) / detect_period if detect_period > 0 else np.zeros(3)
                     X_bias = rv_vec * period_new
                     A = np.eye(3)
                     Z = detect_history_list[id].rvec
@@ -735,21 +779,22 @@ class Observer:
             tvec_in_car_frame_old = each_armor_correct_history_list[1].tvec_in_car_frame
             period = each_armor_correct_history_list[0].time - each_armor_correct_history_list[1].time
             
-            each_armor_rotation_speed = get_rotation_speed_in_xoz_plane(tvec_in_car_frame_latest, tvec_in_car_frame_old, period)
+            each_armor_rotation_speed = get_rotation_speed_in_xoy_plane(tvec_in_car_frame_latest, tvec_in_car_frame_old, period)
             each_armor_confidence = each_armor_correct_history_list[0].confidence
             
             each_armor_rotation_speed_list.append(each_armor_rotation_speed)
             each_armor_confidence_list.append(each_armor_confidence)
-            
-        cur_time = self.observer_params.armor_name_to_car_params[armor_name].armor_idx_to_correct_history[0][0].time
         
-        car_rotation_speed = np.average(each_armor_rotation_speed_list,weights=each_armor_confidence_list)
+ 
+        if all(e == 0 for e in each_armor_confidence_list):
+            car_rotation_speed = np.average(each_armor_rotation_speed_list)
+            
+        else:
+            car_rotation_speed = np.average(each_armor_rotation_speed_list,weights=each_armor_confidence_list)
+        
         #car_rotation_speed = each_armor_confidence.index(max(each_armor_confidence))
         
-        if self.mode == 'Dbg':
-            
-            lr1.info(f"Observer: Calculate {armor_name} car rotation_speed {car_rotation_speed} at time {cur_time} with confidence {np.mean(each_armor_confidence_list)}")
-
+      
         return car_rotation_speed
  
  
@@ -776,20 +821,93 @@ class Observer:
                 
         return continous_num
                 
-    def __check_if_armor_is_focused(self,
-                                    armor_name:str,
-                                    armor_idx:int
-                                    ):
+    def __get_armor_last_focus_period(self,
+                                        armor_name:str,
+                                        armor_idx:int
+                                        ):
         
         car_params = self.observer_params.armor_name_to_car_params[armor_name]
         armor_latest_params = car_params.armor_idx_to_detect_history[armor_idx][0]
         cur_time = time.time()
         period = cur_time - armor_latest_params.time
         
-        if period > self.observer_params.min_time_between_continous_detection:
-            return False
-        else:
-            return True
+        return period
+    def __get_latest_focus_armor_idx(self,
+                                     armor_name:str):
+        
+        t = 0
+        id = -1
+        car_params = self.observer_params.armor_name_to_car_params[armor_name]
+        max_id = np.argmax([car_params.armor_idx_to_detect_history[i][0].time for i in range(car_params.armor_nums)])
+        
+        return max_id
+                
+                
+            
+            
  
+    def _update_other_armor_state_by_one_armor(self,
+                                               armor_name:str,
+                                               armor_idx:int,
+                                               tvec:np.ndarray,
+                                               rvec:np.ndarray,
+                                               t,
+                                               confidence:float,
+                                               armor_idx_to_list:dict
+                                               ):
+        
+        armor_nums = self.observer_params.armor_name_to_car_params[armor_name].armor_nums
+        tvec_list,rvec_list= get_other_face_center_pos( tvec,
+                                                        rvec,
+                                                        self.observer_params.armor_name_to_car_params[armor_name].armor_distance[0],
+                                                        self.observer_params.armor_name_to_car_params[armor_name].armor_distance[1],
+                                                        armor_nums)
+        
+        
+        for i in range(armor_nums):
+            armor_index = i + armor_idx
+            if armor_index >= armor_nums:
+                armor_index -= armor_nums
+            history_list = armor_idx_to_list[armor_index]
+            self._update_armor_history_params(  history_list, 
+                                                tvec_list[i], 
+                                                rvec_list[i], 
+                                                t, 
+                                                confidence)
+    
+    
+    def save_params_to_yaml(self,yaml_path:str)->None:
+        self.observer_params.armor_name_to_car_params = {}
+        self.observer_params.H = self.observer_params.H.tolist()
+        self.observer_params.save_params_to_yaml(yaml_path)
  
     
+    def set_armor_initial_state(self,
+                                 armor_name_to_init_state:dict):
+        
+        for car_params in self.observer_params.armor_name_to_car_params.values():
+            armor_name = car_params.armor_name
+            
+            t = time.time()
+            confidence =0.0
+            
+            tvec = np.array(armor_name_to_init_state[armor_name]['tvec'])
+            rvec = np.array(armor_name_to_init_state[armor_name]['rvec'])
+            
+
+            '''self._update_other_armor_state_by_one_armor(car_params.armor_name, 
+                                                        0, 
+                                                        tvec, 
+                                                        rvec, 
+                                                        t, 
+                                                        confidence, 
+                                                        car_params.armor_idx_to_detect_history)'''
+            
+            self._update_other_armor_state_by_one_armor(car_params.armor_name, 
+                                                        0, 
+                                                        tvec, 
+                                                        rvec, 
+                                                        t, 
+                                                        confidence, 
+                                                        car_params.armor_idx_to_correct_history)
+        

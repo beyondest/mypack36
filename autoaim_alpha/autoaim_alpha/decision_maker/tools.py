@@ -32,31 +32,34 @@ def get_other_face_center_pos(tvec_0:np.ndarray,
     
     if armor_nums == 4:
         
-        tvec_1 = tvec_0 + side_0_length/2 * x_unit + side_1_length/2 * z_unit
-        tvec_2 = tvec_0 + side_1_length * z_unit
-        tvec_3 = tvec_0 - side_0_length/2 * x_unit + side_1_length * z_unit
-        
-        tvec_1 = rot_matrix_0 @ tvec_1
-        tvec_2 = rot_matrix_0 @ tvec_2
-        tvec_3 = rot_matrix_0 @ tvec_3
+        tvec_1 = tvec_0 + side_0_length/2 * x_unit + side_1_length/2 * y_unit
+        tvec_2 = tvec_0 + side_1_length * y_unit
+        tvec_3 = tvec_0 - side_0_length/2 * x_unit + side_1_length/2 * y_unit
         
         
-        rvec_1 = rvec_0 - y_unit * np.pi/2
-        rvec_2 = rvec_1 - y_unit * np.pi/2
-        rvec_3 = rvec_2 - y_unit * np.pi/2
+        rvec_1 = rvec_0 - z_unit * np.pi/2 
+        rvec_2 = rvec_1 - z_unit * np.pi/2 
+        rvec_3 = rvec_2 - z_unit * np.pi/2 
+        
+        #tvec_1 = TRANS_RVEC_TO_ROT_MATRIX(rvec_1) @ tvec_1
+        #tvec_2 = TRANS_RVEC_TO_ROT_MATRIX(rvec_2) @ tvec_2
+        #tvec_3 = TRANS_RVEC_TO_ROT_MATRIX(rvec_3) @ tvec_3
+        
         
         return [tvec_0,tvec_1, tvec_2, tvec_3], [rvec_0, rvec_1, rvec_2, rvec_3]
     
     else:
-        tvec_1 = tvec_0 + side_1_length * z_unit
-        tvec_1 = rot_matrix_0 @ tvec_1
+        tvec_1 = tvec_0 + side_1_length * y_unit
         
-        rvec_1 = rvec_0 - y_unit * np.pi
+        rvec_1 = rvec_0 - y_unit * np.pi + side_1_length * y_unit
+        
+        #tvec_1 = TRANS_RVEC_TO_ROT_MATRIX(rvec_1) @ tvec_1
+        
         
         return [tvec_0, tvec_1], [rvec_0, rvec_1]
     
 
-def get_rotation_speed_in_xoz_plane(tvec_latest:np.ndarray,tvec_old:np.ndarray,dt:float)->float:
+def get_rotation_speed_in_xoy_plane(tvec_latest:np.ndarray,tvec_old:np.ndarray,dt:float)->float:
     
     """
     Args:
@@ -64,26 +67,27 @@ def get_rotation_speed_in_xoz_plane(tvec_latest:np.ndarray,tvec_old:np.ndarray,d
         tvec_old (np.ndarray): _description_
 
     Returns:
-        float: if > 0, the cube is rotationning counterclockwise in the xoz plane. (x face is right, z face is back)
-               if = 0, the cube is not rotationning in the xoz plane or the vectors are too close to zero.
+        float: if > 0, the cube is rotationning counterclockwise in the xoy plane. (x face is right, z face is back)
+               if = 0, the cube is not rotationning in the xoy plane or the vectors are too close to zero.
     """
     
-    tvec_latest_xoz = tvec_latest.flatten()[[0,2]]
-    tvec_old_xoz = tvec_old.flatten()[[0,2]]
-    if np.linalg.norm(tvec_latest_xoz) == 0 or np.linalg.norm(tvec_old_xoz) == 0:
+    tvec_latest_xoy = tvec_latest.flatten()[[0,1]]
+    tvec_old_xoy = tvec_old.flatten()[[0,1]]
+    
+    if dt == 0:
         return 0
     
-    cos_theta = CAL_COS_THETA(tvec_latest_xoz,tvec_old_xoz)
+    if np.linalg.norm(tvec_latest_xoy) == 0 or np.linalg.norm(tvec_old_xoy) == 0:
+        return 0
+    
+    cos_theta = CAL_COS_THETA(tvec_latest_xoy,tvec_old_xoy)
     
     theta = np.arccos(cos_theta)
     speed = theta/dt
-    cross_prod = np.cross(tvec_latest_xoz,tvec_old_xoz)
-    
-    
+    cross_prod = np.cross(tvec_latest_xoy,tvec_old_xoy)
     
     if cross_prod > 0:
         speed = -speed
-        
         
     return speed
 

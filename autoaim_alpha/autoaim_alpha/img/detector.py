@@ -52,7 +52,7 @@ class Armor_Detector:
                  tradition_config_folder :Union[str,None] = None,
                  net_config_folder :Union[str,None] = None,
                  save_roi_key:str = 'c',
-                 depth_estimator_config_folder:Union[str,None] = None
+                 depth_estimator_config_yaml:Union[str,None] = None
                  ) -> None:
         
         CHECK_INPUT_VALID(armor_color,'red','blue')
@@ -76,9 +76,8 @@ class Armor_Detector:
                                                        save_roi_key=save_roi_key
                                                        )  
           
-        self.depth_estimator = Depth_Estimator(depth_estimator_config_folder,
-                                                mode=mode,
-                                                method_name='pnp'
+        self.depth_estimator = Depth_Estimator(depth_estimator_config_yaml,
+                                                mode=mode
                                                 )
         
     @timing(1)
@@ -124,17 +123,28 @@ class Armor_Detector:
         add_text(img,'FPS',fps,color=(255,255,255),scale_size=0.8)  
             
         if self.final_result_list:
-            print(f'Final result nums: {len(self.final_result_list)}')
+            lr1.debug(f'Final result nums: {len(self.final_result_list)}')
             
             for i in self.final_result_list:
                 draw_big_rec_list([i['big_rec']],img,color=(0,255,0))
                 add_text(   img,
-                            f'{i["probability"]:.2f} pos:{i["pos"]}',
+                            f'pro:{i["probability"]:.2f}',
                             value=i['result'],
                             pos=(round(i['center'][0]+20),round(i['center'][1])+20),
                             color=(0,0,255),
                             scale_size=0.7)
-                
+                add_text(   img,
+                            f'x:{i["pos"][0]:.4f}',
+                            value=f'y:{i["pos"][1]:.4f} z:{i["pos"][2]:.4f}',
+                            pos=(20,20),
+                            color=(0,0,255),
+                            scale_size=0.7)
+                add_text(   img,
+                            f'x:{i["rvec"][0]:.4f}',
+                            value=f'y:{i["rvec"][1]:.4f} z:{i["rvec"][2]:.4f}',
+                            pos=(20,100),
+                            color=(0,0,255),
+                            scale_size=0.7)
         if windows_name is None:
             return img   
         
@@ -165,12 +175,12 @@ class Armor_Detector:
         self.center_list,self.roi_single_list,self.big_rec_list  = tmp_list
         
         if self.mode == 'Dbg':
-            print(f'Tradition Time : {tradition_time:.6f}')
+            lr1.debug(f'Tradition Time : {tradition_time:.6f}')
             
             if self.center_list is not None:
-                print(f'Tradition Find Target : {len(self.center_list)}')
+                lr1.debug(f'Tradition Find Target : {len(self.center_list)}')
             else:
-                print(f"Tradition Find Nothing")
+                lr1.debug(f"Tradition Find Nothing")
                 
     def _net_part(self):
         if self.roi_single_list is None:
@@ -181,14 +191,14 @@ class Armor_Detector:
         
         tmp_list,net_time = self.net_detector.get_output(self.roi_single_list)  
         self.probability_list,self.result_list = tmp_list   
-           
+        
         if self.mode == 'Dbg':
-            print(f"Net Time : {net_time:.6f}")
+            lr1.debug(f"Net Time : {net_time:.6f}")
             if self.probability_list is not None:
-                print(f'Net Find Target : {len(self.probability_list)}')
+                lr1.debug(f'Net Find Target : {len(self.probability_list)}')
             else:
-                print('Net Find Nothing')    
-            
+                lr1.debug('Net Find Nothing')    
+        
             
     def _filter_part(self):
         """apply confidence filter and depth estimation to get final result
@@ -202,10 +212,12 @@ class Armor_Detector:
                 if self.probability_list[i] > self.net_detector.params.confidence:
                     
                     obj_class = 'small' if self.result_list[i] in ['2x','3x','4x','5x','basex','sentry'] else 'big'
+                    
                     output = self.depth_estimator.get_result((self.big_rec_list[i],obj_class))
+                    
                     if output is None:
-                        pos = [0,0,0]
-                        rvec = np.zeros(3)
+                        lr1.warning(f"Depth Estimator Fail to get result, skip this target")
+                        continue
                     else:
                         pos,rvec = output
                         
@@ -299,10 +311,7 @@ class Tradition_Detector:
         center_list = turn_big_rec_list_to_center_points_list(big_rec_list)
         
         if self.mode == 'Dbg':
-            print('pre_process1_time',preprocess_time1)
-            print('find_big_rec_time',find_big_rec_time)
-            print('pickup_roi_transfomr_time',pickup_roi_transform_time)
-            print('binary_time',binary_roi_time)
+            lr1.debug(f'pre_process1_time : {preprocess_time1:.4f}, find_big_rec_time : {find_big_rec_time:.4f}, pickup_roi_transfomr_time : {pickup_roi_transform_time:.4f}, binary_roi_time : {binary_roi_time:.4f}')
             cv2.imshow('single',img_single)
             
             if big_rec_list is not None and len(big_rec_list)>0:
@@ -465,11 +474,14 @@ class Tradition_Detector:
         conts,arrs = cv2.findContours(img_single,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
         
         
+        
         small_rec_pairs_list = self.filter1.get_output(conts,img_bgr=img_bgr)
         
-        big_rec_list = [make_big_rec(rec_pair[0],rec_pair[1]) for rec_pair in small_rec_pairs_list]\
-                        if small_rec_pairs_list is not None else None 
-        big_rec_list = expand_rec_wid(big_rec_list,EXPAND_RATE,img_size_yx=img_single.shape)
+        
+        #big_rec_list = [make_big_rec(rec_pair[0],rec_pair[1]) for rec_pair in small_rec_pairs_list] if small_rec_pairs_list is not None else None 
+        #big_rec_list = expand_rec_wid(big_rec_list,EXPAND_RATE,img_size_yx=img_single.shape)
+        big_rec_list = [get_trapezoid_corners(rec_pair[0], rec_pair[1]) for rec_pair in small_rec_pairs_list] if small_rec_pairs_list is not None else None 
+        big_rec_list = expand_trapezoid_wid(big_rec_list,EXPAND_RATE,img_size_yx=img_single.shape)
         
         big_rec_list = self.filter2.get_output(big_rec_list)
             
@@ -675,7 +687,7 @@ class Net_Detector:
             result_list = [self.class_info[index] for index in index_list]
             
             if self.mode == 'Dbg':
-                print(f'Refence Time: {ref_time:.5f}')
+                lr1.debug(f'Refence Time: {ref_time:.5f}')
                 
             return [probabilities_list,result_list]
         
@@ -687,7 +699,7 @@ class Net_Detector:
             result_list = [self.class_info[index] for index in index_list]
             
             if self.mode == 'Dbg':
-                print(f'Refence Time: {ref_time:.5f}')
+                lr1.debug(f'Refence Time: {ref_time:.5f}')
                 
             return [probabilities_list,result_list]
             

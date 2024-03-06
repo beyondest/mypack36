@@ -15,14 +15,15 @@ from .haha import *
 #from .haha import *
 armor_type_list = ['1d','2x','3d','3x','4d','4x','5d','5x','based','basex','sentry']
 
-general_config = Data.get_file_info_from_yaml('/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/general_config.yaml')
+general_config = Data.get_file_info_from_yaml('/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/autoaim_alpha/config/general_params.yaml')
 mode = general_config['mode']
 armor_color = general_config['armor_color']
 
-enemy_car_list=  [{'armor_name':'3x','armor_distance':[0.4,0.5],'armor_nums': 4},
-                               {'armor_name':'4x','armor_distance': [0.5,0.5],'armor_nums': 2}]
+enemy_car_list=  general_config['enemy_car_list']
+armor_name_to_init_state = general_config['armor_name_to_init_state']
 
-
+    
+    
                                                     # Public Params
 car_rotation_axis = np.array([0,1,0])
 # detect_delay + correct_and_predict_delay + cal_ballistic_delay + com_delay
@@ -39,21 +40,23 @@ topic_armor_pos_predicted = {'name': 'armor_pos_predicted', 'type': ArmorPos, 'q
 topic_car_pos = {'name': 'car_pos', 'type': CarPos, 'qos_profile':10}
 topic_electric_sys_com = {'name': 'electric_sys_com', 'type': ElectricsysCom, 'qos_profile':10}
 
-topic_marker_armor_pos_corrected = {'name':'marker', 'type': Marker, 'qos_profile':10}
+topic_marker_armor_pos_corrected = {'name':'armor_marker_topic', 'type': Marker, 'qos_profile':10}
+topic_marker_text_corrected = {'name':'armor_text_topic', 'type': Marker, 'qos_profile':10}
 
-if_pub_car_state = True
-if_pub_armor_state_without_correct = True
+
+
+if_pub_car_state = False
+if_pub_armor_state_without_correct = False
 if_pub_armor_state_corrected = True
 if_pub_armor_state_predicted = False
 if_pub_img_detected = True
                                                     # Node Webcam Mv
                                                     
 node_webcam_mv_name = 'node_webcam_mv'
-node_webcam_mv_frequency = 30
+node_webcam_mv_frequency = 50
 
 
-camera_config_folder = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/camera_config' 
-tradition_config_folder = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/tmp_tradition_config'
+camera_config_folder = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/autoaim_alpha/config/camera_config' 
 
 
 camera_output_format = 'bgr8'
@@ -67,10 +70,9 @@ camera_output_format = 'bgr8'
 
 
 node_detector_name = 'node_detect'
-
-tradition_config_folder = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/tmp_tradition_config'
-net_config_folder = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/tmp_net_config'
-
+tradition_config_folder = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/autoaim_alpha/config/tradition_config'
+net_config_folder = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/autoaim_alpha/config/net_config'
+depth_estimator_config_yaml_path = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/autoaim_alpha/config/other_config/pnp_params.yaml'
 
 
 
@@ -80,20 +82,18 @@ node_observer_name = 'node_observer'
 observer_correct_freq = 100
 observer_predict_freq = 100
 
-
-observer_predict_freq = 100
-observer_config_yaml_path = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/observer_config.yaml'
+observer_config_yaml_path = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/autoaim_alpha/config/other_config/observer_params.yaml'
 
 
                                                   
                                                     # Node Decision Maker
 node_decision_maker_name = 'node_decision_maker'
-make_decision_freq = 10     # equal to send msg freq
+make_decision_freq = 100     # equal to send msg freq
 
 
 
-decision_maker_config_yaml_path = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/decision_maker_config.yaml'
-ballistic_predictor_config_yaml_path = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/ballistic_params.yaml'
+decision_maker_config_yaml_path = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/autoaim_alpha/config/other_config/decision_maker_params.yaml'
+ballistic_predictor_config_yaml_path = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/autoaim_alpha/config/other_config/ballistic_params.yaml'
 
 
 
@@ -104,7 +104,7 @@ send_msg_freq = 100
 recv_from_ele_sys_freq = 100 # equal to publish topic_electric_sys_state freq
 
 
-port_config_yaml_path = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/port_config.yaml'
+port_config_yaml_path = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/autoaim_alpha/config/other_config/port_params.yaml'
 
 
 

@@ -15,9 +15,10 @@ class PNP_Params(Params):
 
         self.mtx = MV1_MTX
         self.dist = MV1_DIST
- 
-  
-
+        self.obj_wid_in_world = 100.0 # unit: mm
+        self.obj_hei_in_world = 100.0 # unit: mm
+        self.method_name = 'pnp'
+        
 
 
 
@@ -30,26 +31,24 @@ class PNP_Params(Params):
 
 class Depth_Estimator:
     def __init__(self,
-                 depth_config_folder :Union[str,None],
-                 mode:str = 'Dbg',
-                 method_name:str = 'pnp'):
+                 depth_estimator_config_yaml :Union[str,None],
+                 mode:str = 'Dbg'
+                 ):
         CHECK_INPUT_VALID(mode,'Dbg','Rel')
-        CHECK_INPUT_VALID(method_name,'pnp','opticalflow')
         
         self.mode = mode
-        self.method = method_name
+        
+        self.pnp_params = PNP_Params()
+        if depth_estimator_config_yaml is not None:
+            self.pnp_params.load_params_from_yaml(depth_estimator_config_yaml)
+        else:
+            lr1.warning(f'Depth_Estimator: depth_estimator_config_yaml is None, using default parameters')
+                
+
+        
+        self.if_enable_trackbar_config = False
         
         
-        if self.method == 'pnp':
-            self.pnp_params = PNP_Params()
-            if depth_config_folder is not None:
-                if not os.path.exists(os.path.join(depth_config_folder,'pnp_params.yaml')):
-                    lr1.critical(f'PnP params file not found in {depth_config_folder}')
-                    raise ValueError(f'PnP params file not found in {depth_config_folder}')
-                self.pnp_params.load_params_from_yaml(os.path.join(depth_config_folder,'pnp_params.yaml'))
-            
-            
-            
     def get_result(self,input):
         """
 
@@ -58,53 +57,87 @@ class Depth_Estimator:
             
         Method:
             pnp: Perspective-n-Point algorithm.
-                input: (big_rec, obj_wid_in_world,obj_hei_in_world): the coordinates of the object in the image.
-                output: [x,y,z],rvecs: the position of the object in the camera coordinate system and the rotation matrix.
+                input: 
+                    big_rec, obj_class = 'big' or'small': the coordinates of the object in the image.
+                output: 
+                    [x,y,z],rvecs: tvec and rvec in camera frame, unit: m.
                 
             pnp_fix: PnP algorithm with fixed parameters.
-                input: (big_rec, obj_class = 'big' or'small'): the coordinates of the object in the image and the class of the object.
-                output: [x,y,z],rvecs: the position of the object in the camera coordinate system and the rotation matrix.
+                input: 
+                    big_rec, obj_class = 'big' or'small': the coordinates of the object in the image and the class of the object.
+                output: 
+                    [x,y,z],rvecs: tvec and rvec in camera frame, unit: m.
                 
         """
         
-        
-        if self.method == "pnp":
+        if self.pnp_params.method_name  == "pnp":
             big_rec = input[0]
-            obj_wid_in_world = input[1]
-            obj_hei_in_world = input[2]
+            obj_wid_in_world = self.pnp_params.obj_wid_in_world
+            obj_hei_in_world = self.pnp_params.obj_hei_in_world
+            
+            # up left / up right / down right / down left
             obj_pts = np.array([[-obj_wid_in_world/2, -obj_hei_in_world/2, 0],
                                 [obj_wid_in_world/2, -obj_hei_in_world/2, 0],
-                                [-obj_wid_in_world/2, obj_hei_in_world/2, 0],
-                                [obj_wid_in_world/2, obj_hei_in_world/2, 0]], dtype=np.double)
+                                [obj_wid_in_world/2, obj_hei_in_world/2, 0],
+                                [-obj_wid_in_world/2, obj_hei_in_world/2, 0]], dtype=np.double)
             
             return self._PNP(big_rec,obj_pts)
         
-        elif self.method == 'pnp_fix':
+        elif self.pnp_params.method_name == 'pnp_fix':
             big_rec = input[0]
             obj_class = input[1]
             if obj_class == 'big':
-                obj_pts = self.pnp_params.big_obj_points
+                obj_pts = np.array(self.pnp_params.big_obj_points,dtype=np.double)
             elif obj_class =='small':
-                obj_pts = self.pnp_params.small_obj_points
+                obj_pts = np.array(self.pnp_params.small_obj_points,dtype=np.double)
             else:
                 lr1.critical(f'Invalid obj_class: {obj_class}')
                 raise ValueError(f'Invalid obj_class: {obj_class}')
             
             return self._PNP(big_rec,obj_pts)
         
-    def save_params_to_folder(self,folder_path:str):
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path)
-        if self.method == 'pnp':
-            self.pnp_params.save_params_to_yaml(os.path.join(folder_path,'pnp_params.yaml'))
+    def save_params_to_yaml(self,yaml_path:str):
+        if not os.path.exists(yaml_path):
+            os.makedirs(yaml_path)
+        if  self.method == 'pnp_fix' or self.method == 'pnp':
+            self.pnp_params.save_params_to_yaml(os.path.join(yaml_path,'pnp_params.yaml'))
+        
+    def enable_trackbar_config(self,
+                               window_name:str = 'depth_estimator_config',
+                               save_params_key:str = 'n',
+                               save_params_yaml_path:str = './tmp_depth_estimator_config.yaml'):
+        self.if_enable_trackbar_config = True
+        self.config_window_name =window_name
+        self.save_params_key = save_params_key
+        self.save_params_yaml_path = save_params_yaml_path
+        def for_trackbar(x):
+            pass
+        cv2.namedWindow(window_name,cv2.WINDOW_FREERATIO)
+        cv2.createTrackbar('obj_wid_in_world_mm',window_name,10,1000,for_trackbar)
+        cv2.createTrackbar('obj_hei_in_world_mm',window_name,10,1000,for_trackbar)
+        
+        cv2.setTrackbarPos('obj_wid_in_world_mm',window_name,int(self.pnp_params.obj_wid_in_world))
+        cv2.setTrackbarPos('obj_hei_in_world_mm',window_name,int(self.pnp_params.obj_hei_in_world))
+        
+            
     
-    
+    def _detect_trackbar_config(self):
+        
+        self.pnp_params.obj_wid_in_world = float(cv2.getTrackbarPos('obj_wid_in_world_mm',self.config_window_name))
+        self.pnp_params.obj_hei_in_world = float(cv2.getTrackbarPos('obj_hei_in_world_mm',self.config_window_name))
+        if cv2.waitKey(1) == ord(self.save_params_key):
+            self.pnp_params.save_params_to_yaml(self.save_params_yaml_path)
+        
+
     
     def _PNP(self,big_rec,obj_pts:np.ndarray):
         if big_rec is None:
             lr1.warning(f'big_rec is None')
             return None
         
+        if self.if_enable_trackbar_config:
+            self._detect_trackbar_config()
+            
         img_points = np.array(big_rec, dtype=np.double)
         img_points = img_points / self.pnp_params.img_shrink_scale
         
@@ -117,12 +150,22 @@ class Depth_Estimator:
             return None
         
         tvecs = np.array(tvecs)
-        positions = [(tvecs[0][0], tvecs[1][0], tvecs[2][0])]
-        x,y,z = positions[0]
+        x = tvecs[0][0] / 1000.0  # unit: m
+        y = tvecs[1][0] / 1000.0  # unit: m
+        z = tvecs[2][0] / 1000.0  # unit: m
         
-        return [x,y,z],rvecs
+        y,z = z,y # change the order of y and z, cause y is deep in rviz2
+        z = -z # when target is up, z add, when target is down, z minus.
         
-
+        rx,ry,rz = rvecs[0][0],rvecs[1][0],rvecs[2][0]
+        ry, rz = rz, ry # change the order of ry and rz
+        
+        if self.mode == 'Dbg':
+            lr1.debug(f"big_rec: {big_rec}, img_points: {img_points}, obj_pts: {obj_pts},")
+            lr1.debug(f'PnP result: x: {x:.4f}, y: {y:.4f}, z: {z:.4f}, rx: {rx:.4f}, ry: {ry:.4f}, rz: {rz:.4f}')
+        
+        return [x,y,z],[rx,ry,rz]
+        
     def _reverse_PNP(self,
                      point_to_camera_coordinate:list,
                      mtx:list,
@@ -152,7 +195,8 @@ class Depth_Estimator:
         
               
         return [u_correct,v_correct]
-        
+    
+    
         
 
 

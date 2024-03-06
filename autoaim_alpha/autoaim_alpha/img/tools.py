@@ -233,7 +233,7 @@ def walk_until_dis(begin_x:int,
     x_range=(0,img_size_yx[1])
     y_range=(0,img_size_yx[0])
     if math.isinf(slope) or math.isnan(slope):
-        print('slope out')
+        lr1.debug('Img : walk_until_dis fail,slope out')
         return [x,y]
     theta=math.atan(abs(slope))
     delta_x=distance*math.cos(theta)
@@ -299,7 +299,7 @@ def expand_rec_wid(rec_cont_list:Union[list,None],expand_rate:float=1.5,img_size
             y1,y2,y3,y4=y2,y3,y4,y1
             dis=hei*(expand_rate-1)/2
             #all is expanding in slope 12, the short side slope
-            slope12=(y1-y2)/(x1-x2)
+            slope12=(y1-y2)/(x1-x2) if x1 - x2 != 0 else 0
             #check if vertical
             if slope12==0 or math.isinf(slope12) or math.isnan(slope12):
                 out_points[1]=[x1,y1-dis]
@@ -325,7 +325,7 @@ def expand_rec_wid(rec_cont_list:Union[list,None],expand_rate:float=1.5,img_size
             dis=hei*(expand_rate-1)/2
             #all is expanding in slope 12, the short side slope
             
-            slope12=(y1-y2)/(x1-x2)
+            slope12=(y1-y2)/(x1-x2) if x1 - x2 != 0 else 0
             #check if vertical
             if slope12==0 or math.isnan(slope12) or math.isinf(slope12):
                 out_points[0]=[x1,y1+dis]
@@ -436,9 +436,7 @@ def get_threshold(img_for_show_in_hist:np.ndarray,
         cv2.imshow('hist',canvas)
         cv2.waitKey(1)
 
-        print('hist is ',hist)
-        print('thresh:',thresh)
-    
+        lr1.debug(f'thresh:{thresh}')
     
     
     return thresh
@@ -447,6 +445,10 @@ def get_threshold(img_for_show_in_hist:np.ndarray,
 def get_trapezoid_corners(rect1, rect2):
     ordered_pts = np.zeros((4, 2))
     
+    rect1 = cv2.minAreaRect(rect1)
+    rect2 = cv2.minAreaRect(rect2)
+    rect1 = np.int0(cv2.boxPoints(rect1))
+    rect2 = np.int0(cv2.boxPoints(rect2))
 
     if getrec_info(rect1)[0] < getrec_info(rect2)[0]:
         
@@ -524,7 +526,8 @@ def expand_trapezoid_wid(trapezoid_cont_list:Union[list,None],expand_rate:float=
                                                           'right' if slope_right > 0 else 'left',
                                                           img_size_yx=img_size_yx
                                                         )
-        
+            
+        expanded_trapezoid_points = expanded_trapezoid_points.astype(np.int64)
         out_list.append(expanded_trapezoid_points)
         
     return out_list

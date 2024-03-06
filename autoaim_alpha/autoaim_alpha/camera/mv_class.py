@@ -211,8 +211,8 @@ class Mindvision_Camera(Custom_Context_Obj):
         dst = cv2.resize(dst,(self.isp_params.grab_resolution_wid,self.isp_params.grab_resolution_hei))
         
         if self.camera_mode == 'Dbg':
-            print('get buffer:',t2-t1)
-            print('isp:',t3 - t2)
+            lr1.debug(f'Camera : get buffer: { t2-t1:.4f}, camera isp process: { t3-t2:.4f}')
+            
         
         if dst is not None and self.if_save_img:
             if self.save_img_interval is not None:

@@ -1,0 +1,10 @@
+confidence: 0.5
+engine_type: ort
+input_dtype: float32
+input_name: input
+input_size:
+- 64
+- 64
+output_name: output
+
+

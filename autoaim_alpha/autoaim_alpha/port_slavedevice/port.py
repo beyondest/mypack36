@@ -50,19 +50,24 @@ class Port:
                                     ) 
         
         except:
+            self.ser = None
             lr1.critical(f"Failed to open serial port {self.params.port_abs_path}")
         
         
     def send_msg(self,sof:str = 'A'):
-        if sof == 'A':
-            msg = self.params.action_data.convert_action_data_to_bytes(if_part_crc=False)
-            send_data(self.ser,msg)
+        if self.ser is not None:
+            if sof == 'A':
+                
+                msg = self.action_data.convert_action_data_to_bytes(if_part_crc=False)
+                send_data(self.ser,msg)
+                
+            elif sof == 'S':
+                
+                msg = self.syn_data.convert_syn_data_to_bytes(if_part_crc=False)
+                send_data(self.ser,msg)
+            lr1.debug(f"Port_Slavedevice : send msg success")
+
             
-        elif sof == 'S':
-            
-            msg = self.params.syn_data.convert_syn_data_to_bytes(if_part_crc=False)
-            send_data(self.ser,msg)
-        
         
     def recv_feedback(self)->tuple:
         """_summary_
@@ -76,25 +81,30 @@ class Port:
             cur_time_second_frac:float
         """
         
+        if self.ser is not None:
+            msg = read_data(self.ser,
+                            16)
+            if_error = self.pos_data.convert_pos_bytes_to_data(msg,if_part_crc=False)
+            
+            cur_yaw = self.pos_data.present_yaw + np.pi
+            cur_pitch = self.pos_data.present_pitch
+            cur_time_minute = self.pos_data.stm_minute
+            cur_time_second = self.pos_data.stm_second
+            cur_time_second_frac = self.pos_data.stm_second_frac 
+            lr1.debug(f"Port_Slavedevice : recv feedback success")
+            return if_error,cur_yaw,cur_pitch,cur_time_minute,cur_time_second,cur_time_second_frac
         
-        msg = read_data(self.ser,
-                        16)
-        if_error = self.params.pos_data.convert_pos_bytes_to_data(msg,if_part_crc=False)
+        else:
+            
+            return True,0,0,0,0,0.0
         
-        cur_yaw = self.params.pos_data.present_yaw + np.pi
-        cur_pitch = self.params.pos_data.present_pitch
-        cur_time_minute = self.params.pos_data.stm_minute
-        cur_time_second = self.params.pos_data.stm_second
-        cur_time_second_frac = self.params.pos_data.stm_second_frac 
-        
-        return if_error,cur_yaw,cur_pitch,cur_time_minute,cur_time_second,cur_time_second_frac
-    
-    
     def port_open(self):
-        self.ser.open()
+        if self.ser is not None:
+            self.ser.open()
     
-    def port_close(self):
-        self.ser.close()
+    def port_close(self):  
+        if self.ser is not None:
+            self.ser.close()
         
     def save_params_to_yaml(self,yaml_path:str)->None:
         self.params.save_params_to_yaml(yaml_path)

@@ -42,7 +42,7 @@ for i in np.arange(0,1e-4,1e-7):
     cur_yaw = 0
     b._update_camera_pos_in_gun_pivot_frame(cur_yaw, cur_pitch)
     target_pos_in_gun_pivot_frame = b.params.camera_pos_in_gun_pivot_frame + target_pos
-    tvec_zoy = target_pos_in_gun_pivot_frame[[2,1]]
+    tvec_yoz = target_pos_in_gun_pivot_frame[[1,2]]
     
     
     
@@ -54,7 +54,7 @@ for i in np.arange(0,1e-4,1e-7):
     # most accurate result
     accurate_result = b.get_fire_yaw_pitch(target_pos,cur_yaw,cur_pitch)
 
-    [acc_hei_diff,acc_flight_time],_ = b._R_K4_air_drag_ballistic_model(0,tvec_zoy,'hei')
+    [acc_hei_diff,acc_flight_time],_ = b._R_K4_air_drag_ballistic_model(0,tvec_yoz,'hei')
     print(f"Accurate Hei Diff: {acc_hei_diff},flight time: {acc_flight_time}")
 
     x.append(i)

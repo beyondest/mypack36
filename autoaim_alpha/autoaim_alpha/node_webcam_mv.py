@@ -37,6 +37,8 @@ class Node_Webcam_MV(Node,Custom_Context_Obj):
                                     camera_config_folder = camera_config_folder,
                                     armor_color=armor_color
                                     )
+        if mode == 'Dbg':
+            self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG)
         
         
     def timer_pub_img_callback(self):
@@ -65,7 +67,7 @@ class Node_Webcam_MV(Node,Custom_Context_Obj):
         
 
     def _errorhandler(self,exc_value):
-        print(f"Node {self.get_name()} get error : {exc_value}")
+        self.get_logger().error(f"Node {self.get_name()} get error : {exc_value}")
     
 def main(args = None):
     

@@ -14,6 +14,8 @@ lr1 = get_logger('logger1',
                  if_enable_logging=True,
                  if_show_on_terminal=True,
                  if_save_to_disk=True,
-                 terminal_leval=DEBUG
+                 terminal_leval=WARNING,
+                 save_leval=DEBUG
                  )
+
 

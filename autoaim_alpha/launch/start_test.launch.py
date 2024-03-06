@@ -15,6 +15,7 @@ def generate_launch_description():
             node_name='node_test2',
             output='log'
             
+            
         ),
         Node(
             package='rviz2',

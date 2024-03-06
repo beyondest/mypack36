@@ -311,8 +311,8 @@ class action_data(data_list):
     def __init__(self,
                  SOF:str = 'A',
                  fire_times:int=0,
-                 abs_pitch_10000:int=-1745, # -1745 = -10 degree
-                 abs_yaw_10000:int=15708,  # 15708 = 90 degree
+                 abs_pitch_10000:int=+1745, # -1745 = -10 degree
+                 abs_yaw_10000:int=-15708,  # 15708 = 90 degree
                  target_minute:int=0,
                  target_second:int=0,
                  target_second_frac_10000:int=0,
@@ -507,18 +507,49 @@ class pos_data(data_list):
     
 
 #first get reversed of data, then use crc-32-mpeg will get right crc same as stm32 
-    
+import numpy as np
 if __name__ =="__main__":
     
     
     a = action_data()
-    r = a.convert_action_data_to_bytes(if_part_crc=False)
-    print(a.crc_v)
-    print(r)
-    s = ''
-    for i in r:
-        s+= hex(i)[2:] + ' '
-    print(s)
+    if 1:
+        for yaw in np.arange(-31416,31416,2000):
+            
+            a.abs_yaw_10000 = int(yaw)
+            
+            r = a.convert_action_data_to_bytes(if_part_crc=False)
+
+            s = ''
+            for i in r:
+                
+                add_ = hex(i)[2:]
+                if len(add_) == 1:
+                    add_ = '0'+add_
+                s+= add_ + ' '
+                
+            print(s)
+        
+    if 0:
+        for pitch in np.arange(-3491,8727,1000):
+            
+            a.abs_pitch_10000 = int(pitch)
+            
+            r = a.convert_action_data_to_bytes(if_part_crc=False)
+
+            s = ''
+            for i in r:
+                
+                add_ = hex(i)[2:]
+                if len(add_) == 1:
+                    add_ = '0'+add_
+                s+= add_ + ' '
+                
+            print(s)
+            
+    
+        
+        
+    
     
     
     

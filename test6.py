@@ -1,7 +1,4 @@
-from autoaim_alpha.autoaim_alpha.port_slavedevice.port import *
-
-p = Port()
-p.save_params_to_yaml('port_config_params.yaml')
-
-
+from autoaim_alpha.autoaim_alpha.img.depth_estimator import *
+a = Depth_Estimator(None)
+a.save_params_to_folder('./depth_estimator_params/')
 

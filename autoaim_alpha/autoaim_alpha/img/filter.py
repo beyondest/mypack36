@@ -38,9 +38,7 @@ class Filter_Big_Rec_Params(Params):
         self.accept_area_range =  BIG_REC_AREA_RANGE
         self.accept_aspect_ratio_range = BIG_REC_ASPECT_RATIO_RANGE    
         
-        
-        
-    
+
         
 
 class Filter_of_lightbar(Filter_Base):
@@ -72,7 +70,7 @@ class Filter_of_lightbar(Filter_Base):
         out_list = []
         
         if self.mode == 'Dbg':
-            print(f'Filter Light Bar Begin : get conts {len(input_list)}')
+            lr1.debug(f'Filter Light Bar Begin : get conts {len(input_list)}')
             
         # One order filter
         for each_cont in input_list:
@@ -85,8 +83,7 @@ class Filter_of_lightbar(Filter_Base):
             aspect = wid/hei
             if self.mode == 'Dbg':
                 
-                print('Light Bar Aspect : ',aspect)
-                print('Light Bar Area : ',rec_area)
+                lr1.debug(f'Light Bar Aspect : {aspect}, Light Bar Area : {rec_area}')
                 if img_bgr is not None:
                     draw_single_cont(img_bgr,each_cont)
                     #add_text(img_bgr,'as',round(aspect,2),(round(x),round(y)),color=(255,255,255),scale_size=0.6)
@@ -103,7 +100,7 @@ class Filter_of_lightbar(Filter_Base):
         
         
         if self.mode == 'Dbg':
-            print(f'Filter Light Bar after one order : {len(tmp_list)}')      
+            lr1.debug(f'Filter Light Bar after one order : {len(tmp_list)}')      
         
         if len(tmp_list)  == 0:
             return None
@@ -121,9 +118,9 @@ class Filter_of_lightbar(Filter_Base):
                 center_dis = CAL_EUCLIDEAN_DISTANCE(pre_dict['center'],cur_dict['center'])
                 
                 if self.mode == "Dbg":
-                    print("Light Bar Two Aspect Ratio : ", two_aspect_ratio)
-                    print("Light Bar Two Area Ratio : ",two_area_ratio)
-                    print("Light Bar Center Dis : ",center_dis)
+                    lr1.debug(f"Light Bar Two Aspect Ratio : {two_aspect_ratio}")
+                    lr1.debug(f"Light Bar Two Area Ratio : {two_area_ratio}")
+                    lr1.debug(f"Light Bar Center Dis : {center_dis}")
                     
                         
                 if  INRANGE(two_area_ratio,self.filter_params.accept_two_area_ratio_range) \
@@ -134,7 +131,7 @@ class Filter_of_lightbar(Filter_Base):
         
         
         if self.mode == 'Dbg':
-            print(f'Filter Light Bar after two order : {len(out_list)}')
+            lr1.debug(f'Filter Light Bar after two order : {len(out_list)}')
         
         return None if len(out_list) == 0 else out_list
     
@@ -221,12 +218,12 @@ class Filter_of_big_rec(Filter_Base):
         """
         if input_list is None:
             if self.mode == 'Dbg':
-                print("Filter Big Rec Get Nothing")
+                lr1.debug("Filter Big Rec Get Nothing")
             return None
         tmp_list = []
         
         if self.mode == 'Dbg':
-            print(f'Filter Big Rec begin : get conts {len(input_list)}')
+            lr1.debug(f'Filter Big Rec begin : get conts {len(input_list)}')
             
         # One order filter
         for each_cont in input_list:
@@ -239,8 +236,7 @@ class Filter_of_big_rec(Filter_Base):
             aspect = wid/hei
             if self.mode == 'Dbg':
                 
-                print("Big Rec Aspect : ",aspect)
-                print("Big Rec Area : ",rec_area)
+                lr1.debug(f"Big Rec Aspect : {aspect}, Big Rec Area : {rec_area}")
             
             if  INRANGE(aspect,self.filter_params.accept_aspect_ratio_range) \
             and INRANGE(rec_area,self.filter_params.accept_area_range):
@@ -248,7 +244,7 @@ class Filter_of_big_rec(Filter_Base):
               
             
         if self.mode == 'Dbg':
-            print(f'Filter Big Rec after one order : {len(tmp_list)}')      
+            lr1.debug(f'Filter Big Rec after one order : {len(tmp_list)}')      
         
         return tmp_list
 
@@ -288,5 +284,7 @@ class Filter_of_big_rec(Filter_Base):
             
             self.filter_params.save_params_to_yaml('./filter2_params.yaml')
         
-        
+
+
+ 
 

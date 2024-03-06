@@ -64,14 +64,15 @@ if __name__ == '__main__':
     if action == 'record':
         ca = Mindvision_Camera(output_format='bgr8',
                             camera_mode='Dbg',
-                            camera_config_folder=camera_config_folder)
+                            camera_config_folder=None,
+                            if_auto_exposure=True)
         
         
         ca.enable_save_img(calibration_img_save_path,
                         save_img_interval=None,
                         press_key_to_save='p')
         
-        with Custom_Context_Obj(ca):
+        with Custome_Context('ca',ca):
             while True: 
                 
                 img = ca.get_img()

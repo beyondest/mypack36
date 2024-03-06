@@ -24,8 +24,11 @@ class NO_Logging_logger:
             pass
         @classmethod
         def critical(cls,msg:str):
+            
             pass
-
+        def setLevel(self,level:int):
+            pass
+        
 def get_logger(
     name:str,
     if_enable_logging:bool,

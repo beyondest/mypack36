@@ -1,0 +1,51 @@
+
+# mode: Dbg, Rel 
+mode : Dbg
+
+# enemy armor color
+armor_color : blue
+
+
+# armor_distance : the distance between 2 opposite armors, unit: m
+# if armor_nums == 4: [x_distance, y_distance], x distance means maximum efficency direction of robot chassis 
+# if armor_nums == 2: [no_meaning, distance] 
+enemy_car_list : 
+- armor_distance:
+  - 0.5
+  - 0.5
+  armor_name: 3x
+  armor_nums: 4  
+#- armor_distance:
+#  - 0.5
+#  - 0.5
+#  armor_name: 4x
+#  armor_nums: 2
+
+# in camera frame
+armor_name_to_init_state:
+  3x:
+    rvec:
+    - 0.0
+    - 0.0
+    - 3.141593
+    tvec:
+    - 0.0
+    - 5.0
+    - -0.3
+#  2x:
+#    rvec:
+#    - 1
+#    - 1
+#    - 1
+#    tvec:
+#    - 1
+#    - 1
+#    - 1
+
+
+# Warning :
+# global logger level need to be set in os_op/global_logger.py
+
+
+# Notice :
+# rviz2 yaw = 4.72318 pitch = 0.2 , in this sight, x if right, y is in, z is up
