@@ -16,8 +16,8 @@ class Filter_Base:
     def enable_trackbar_config(self):
         raise NotImplementedError('Please implement the enable_trackbar_config method')
     
-    def detect_trackbar_config(self):
-        raise NotImplementedError('Please implement the detect_trackbar_config method')
+    def _detect_trackbar_config(self):
+        raise NotImplementedError('Please implement the _detect_trackbar_config method')
     
 
     
@@ -50,6 +50,7 @@ class Filter_of_lightbar(Filter_Base):
         
         self.filter_params = Filter_Lightbar_Params()
         self.mode = mode
+        self.if_enable_trackbar_config = False
     
     
     def get_output(self,input_list:list,img_bgr:Union[np.ndarray,None] = None)->Union[list,None]:
@@ -65,7 +66,9 @@ class Filter_of_lightbar(Filter_Base):
         
         if input_list is None:
             return None
-        
+        if self.if_enable_trackbar_config:
+            self._detect_trackbar_config()
+            
         tmp_list = []
         out_list = []
         
@@ -144,7 +147,7 @@ class Filter_of_lightbar(Filter_Base):
         
         self.config_window_name =window_name
         self.press_key_to_save = press_key_to_save
-        
+        self.if_enable_trackbar_config = True
         def for_trackbar(x):
             pass
         
@@ -173,7 +176,7 @@ class Filter_of_lightbar(Filter_Base):
         #cv2.setTrackbarPos('center_dis_range_max',window_name,self.filter_params.accept_center_distance_range[1])
 
     
-    def detect_trackbar_config(self):
+    def _detect_trackbar_config(self):
         
         #self.filter_params.accept_area_range[0] = cv2.getTrackbarPos('area_range_min',self.config_window_name)
         #self.filter_params.accept_area_range[1] = cv2.getTrackbarPos('area_range_max',self.config_window_name)
@@ -205,7 +208,7 @@ class Filter_of_big_rec(Filter_Base):
         CHECK_INPUT_VALID(mode,'Dbg','Rel')
         self.filter_params = Filter_Big_Rec_Params()
         self.mode = mode
-        
+        self.if_enable_trackbar_config = False
     def get_output(self,input_list:list)->Union[list,None]:
         
         """Get pairs of conts after filter
@@ -221,6 +224,8 @@ class Filter_of_big_rec(Filter_Base):
                 lr1.debug("Filter Big Rec Get Nothing")
             return None
         tmp_list = []
+        if self.if_enable_trackbar_config:
+            self._detect_trackbar_config()
         
         if self.mode == 'Dbg':
             lr1.debug(f'Filter Big Rec begin : get conts {len(input_list)}')
@@ -258,6 +263,7 @@ class Filter_of_big_rec(Filter_Base):
         
         self.config_window_name =window_name
         self.press_key_to_save = press_key_to_save
+        self.if_enable_trackbar_config = True   
         def for_trackbar(x):
             pass
         cv2.namedWindow(window_name,cv2.WINDOW_FREERATIO)
@@ -273,7 +279,7 @@ class Filter_of_big_rec(Filter_Base):
         cv2.setTrackbarPos('aspect_range_max_100',window_name,round(self.filter_params.accept_aspect_ratio_range[1] * 100))
 
 
-    def detect_trackbar_config(self):
+    def _detect_trackbar_config(self):
         
         #self.filter_params.accept_area_range[0] = cv2.getTrackbarPos('area_range_min',self.config_window_name)
         #self.filter_params.accept_area_range[1] = cv2.getTrackbarPos('area_range_max',self.config_window_name)

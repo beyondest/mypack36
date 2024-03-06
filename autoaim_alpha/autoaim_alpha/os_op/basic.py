@@ -76,6 +76,7 @@ class Custome_Context:
     def __init__(self,
                  context_name:str,
                  obj_with_start_end_errorhandler,
+                 ignore_error_type:list = None
                  ) -> None:
         self.context_name = context_name
         self.obj_with_start_end_errorhandler = obj_with_start_end_errorhandler
@@ -84,6 +85,7 @@ class Custome_Context:
             or self.obj_with_start_end_errorhandler._errorhandler is None:
             lr1.critical(f"OS_OP : Context init failed, obj of {context_name} has no _start or _end or _errorhandler") 
             raise TypeError("OP_OP")   
+        self.ignore_error_type = ignore_error_type if ignore_error_type is not None else []
         
     def __enter__(self):
         try:
@@ -95,7 +97,7 @@ class Custome_Context:
         
         
     def __exit__(self,exc_type,exc_value,traceback):
-        if exc_type is not None:
+        if exc_type is not None and exc_type not in self.ignore_error_type:
             self.obj_with_start_end_errorhandler._errorhandler(exc_value)
         
         self.obj_with_start_end_errorhandler._end()
@@ -191,6 +193,8 @@ def TRANS_RVEC_TO_ROT_MATRIX(rvec:np.ndarray)->np.ndarray:
         return None
     
     theta = np.linalg.norm(rvec)
+    if theta == 0:
+        return np.eye(3)
     k = rvec / theta
     K = np.array([[0, -k[2], k[1]], [k[2], 0, -k[0]], [-k[1], k[0], 0]])
     rot_matrix = np.eye(3) + np.sin(theta) * K + (1 - np.cos(theta)) * np.dot(K, K)
@@ -224,7 +228,7 @@ class Score_Obj:
             raise TypeError(f"score_accumulation_method_list length {len(score_accumulation_method_list)} not equal to attributes_list length {len(attributes_list)}")
         
         for i in score_accumulation_method_list:
-            CHECK_INPUT_VALID(i,['add','mul','pow'])
+            CHECK_INPUT_VALID(i,'add','mul','pow')
         
         self.name = name
         self.score_list = []
@@ -246,10 +250,9 @@ class Score_Obj:
     
     def show_each_attribute_score(self):
         
-        lr1.info(f"{self.name} : each attribute score :")
-        
+        lr1.info(f"Score_Obj : {self.name} : each attribute score :")
         for i,score in enumerate(self.score_list):
-            lr1.info(f"OS_OP : attribute {i} : {self.attributes_list[i]} reference {self.reference_list[i]} score {score}")
+            lr1.info(f"Score_Obj : attribute {i} : {self.attributes_list[i]} reference {self.reference_list[i]} score {score}")
 
 class Score_Keeper:
     
@@ -309,7 +312,12 @@ def CAL_COS_THETA(v1,v2)->float:
     Returns:
         float: _description_
     """
-    return np.dot(v1,v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+    v1_norm = np.linalg.norm(v1)
+    v2_norm = np.linalg.norm(v2)
+    if v1_norm == 0 or v2_norm == 0:
+        return 0
+    else:
+        return np.dot(v1,v2) / (v1_norm * v2_norm)
 
 
 def SHIFT_LIST_AND_ASSIG_VALUE(lst:list,value)->list:

@@ -116,7 +116,14 @@ class Armor_Detector:
             return None
 
     
-    def visualize(self,img,fps,windows_name:Union[str,None] = 'detect_result')->None:
+    def visualize(self,
+                  img,
+                  fps,
+                  windows_name:Union[str,None] = 'detect_result',
+                  fire_times:int = 0,
+                  target_abs_pitch:float = 0.0,
+                  target_abs_yaw:float = 0.0
+                 )->None:
         
         """visualize the result of armor detection,
             if windows_name is None, return img drawn result on it but not show """
@@ -134,17 +141,24 @@ class Armor_Detector:
                             color=(0,0,255),
                             scale_size=0.7)
                 add_text(   img,
-                            f'x:{i["pos"][0]:.4f}',
+                            f'tx:{i["pos"][0]:.4f}',
                             value=f'y:{i["pos"][1]:.4f} z:{i["pos"][2]:.4f}',
                             pos=(20,20),
                             color=(0,0,255),
                             scale_size=0.7)
                 add_text(   img,
-                            f'x:{i["rvec"][0]:.4f}',
+                            f'rx:{i["rvec"][0]:.4f}',
                             value=f'y:{i["rvec"][1]:.4f} z:{i["rvec"][2]:.4f}',
                             pos=(20,100),
                             color=(0,0,255),
                             scale_size=0.7)
+                add_text(   img,
+                            f'fire:{fire_times}',
+                            value=f'tar_pit:{target_abs_pitch:.4f},tar_yaw:{target_abs_yaw:.4f}',
+                            pos=(20,150),
+                            color=(0,0,255),
+                            scale_size=0.7)
+                
         if windows_name is None:
             return img   
         
@@ -184,7 +198,8 @@ class Armor_Detector:
                 
     def _net_part(self):
         if self.roi_single_list is None:
-            lr1.warning("IMG : No img to apply net part")
+            if self.mode == 'Dbg':
+                lr1.debug("IMG : No img to apply net part")
             return None
         
         
@@ -295,7 +310,8 @@ class Tradition_Detector:
             lr1.warning("IMG : tradition detector get None img")
         
             return None
-        
+        if self.if_enable_preprocess_config:
+            self._detect_trackbar_config()
         # No change to img_bgr
         img_single, preprocess_time1 = self._pre_process_bgr1(img_bgr)
         
@@ -413,7 +429,7 @@ class Tradition_Detector:
             cv2.setTrackbarPos('threshold',window_name,self.Tradition_Params.blue_armor_binary_roi_threshold)
             
     
-    def detect_trackbar_config(self):
+    def _detect_trackbar_config(self):
         
         self.Tradition_Params.close_kernel_size[0] = cv2.getTrackbarPos('kernel_wid',self.config_window_name)
         self.Tradition_Params.close_kernel_size[1] = cv2.getTrackbarPos('kernel_hei',self.config_window_name)

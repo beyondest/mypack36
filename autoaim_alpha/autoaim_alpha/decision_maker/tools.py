@@ -111,7 +111,6 @@ class Kalman_Filter:
         self.X_prior_predict = None
         self.P_prior_predict = None
         
-        
     def set_initial_state(self, 
                           X_0:np.ndarray, 
                           P_0:np.ndarray):
@@ -122,13 +121,13 @@ class Kalman_Filter:
                 A:np.ndarray,
                 Z:np.ndarray,
                 X_bias:Union[np.ndarray,None]=None,
-                Q_new: Union[float,None]=None,
-                R_new: Union[float,None]=None):
+                Q_new: Union[np.array,None]=None,
+                R_new: Union[np.array,None]=None):
         
         if Q_new is not None:
-            self.Q[0,0] = Q_new
+            self.Q = Q_new
         if R_new is not None:
-            self.R[0,0] = R_new
+            self.R = R_new
             
         self._prior_predict(A,X_bias)
         self._correct(Z)
@@ -148,21 +147,26 @@ class Kalman_Filter:
             A (np.ndarray): _description_
         """
         if X_bias is not None:
-            self.X_posterior_predict = A @ self.X_posterior_predict + X_bias
+            self.X_prior_predict = A @ self.X_posterior_predict + X_bias
         else:
             self.X_prior_predict = A @ self.X_posterior_predict
             
         self.P_prior_predict = A @ self.P_posterior_predict @ A.T + self.Q
-        
+        lr1.debug(f"KALMAN prior pridict : X_prior_predict:{self.X_prior_predict}, P_prior_predict:{self.P_prior_predict}")
         
     def _correct(self,
                  Z:np.ndarray):
         
-        self.K = self.P_prior_predict @ self.H.T @ np.linalg.pinv(self.H @ self.P_prior_predict @ self.H.T + self.R)
-        self.X_posterior_predict = self.X_prior_predict + self.K @ (Z - self.H @ self.X_prior_predict)
-        self.P_posterior_predict = (np.eye(self.X_posterior_predict.shape[0]) - self.K @ self.H) @ self.P_prior_predict
+        inv_mat = np.linalg.pinv(self.H @ self.P_prior_predict @ self.H.T + self.R)
         
+        self.K = self.P_prior_predict @ self.H.T @ inv_mat
+        
+        self.X_posterior_predict = self.X_prior_predict + self.K @ (Z - self.H @ self.X_prior_predict)
+        self.P_posterior_predict = self.X_posterior_predict - self.K @ self.H@ self.P_prior_predict
+        
+        lr1.debug(f"KALMAN : K:{self.K}, X_posterior_predict:{self.X_posterior_predict}, P_posterior_predict:{self.P_posterior_predict}")
 
+        
 
 def trans_t_to_unix_time(minute:int,
                          second:int,

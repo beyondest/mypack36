@@ -24,10 +24,11 @@ class Node_Com(Node,Custom_Context_Obj):
         self.timer_send_msg = self.create_timer(1/send_msg_freq, self.timer_send_msg_callback)
         self.timer_recv_msg = self.create_timer(1/recv_from_ele_sys_freq, self.timer_recv_msg_callback)
         
-        self.port = Port(mode,
+        self.port = Port(node_com_mode,
                          port_config_yaml_path)
-        if mode == 'Dbg':
-            self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG)
+        
+        if node_com_mode == 'Dbg':
+            self.get_logger().set_level(rclpy.logging.LoggingSeverity.INFO)
 
         self.init_synchronization_time()
         self.last_sub_topic_time = 0
@@ -45,14 +46,14 @@ class Node_Com(Node,Custom_Context_Obj):
             self.port.action_data.target_minute = minute
             self.port.action_data.target_second = second
             self.port.action_data.target_second_frac_10000 = int(second_frac * 10000)
-            if mode == 'Dbg':
-                self.get_logger().debug(f"SOF A from Decision maker at time {msg.reach_unix_time:.3f}")
+            if node_com_mode == 'Dbg':
+                self.get_logger().debug(f"SOF A from Decision maker : abs_pitch {msg.target_abs_pitch:.3f}, abs_yaw {msg.target_abs_yaw:.3f}, reach at time {msg.reach_unix_time:.3f}")
             
             if msg.fire_times > 0:
                 self.port.send_msg(msg.sof)
                 self.port.action_data.fire_times = 0
                 
-                if mode == 'Dbg':
+                if node_com_mode == 'Dbg':
                     self.get_logger().debug(f"Fire : {msg.fire_times} times")
         
                 
@@ -64,7 +65,7 @@ class Node_Com(Node,Custom_Context_Obj):
             self.port.syn_data.present_second_frac_10000 = int(second_frac * 10000)
             self.port.send_msg(msg.sof)
             
-            if mode == 'Dbg':
+            if node_com_mode == 'Dbg':
                 self.get_logger().debug(f"Sync time : {cur_unix_time:.3f}")
                 self.get_logger().debug(f"SOF S from Decision maker")
             
@@ -81,7 +82,7 @@ class Node_Com(Node,Custom_Context_Obj):
         self.declare_parameter('zero_unix_time',self.zero_unix_time)
         self.port.send_msg('S')
         
-        if mode == 'Dbg':
+        if node_com_mode == 'Dbg':
             self.get_logger().debug(f"Init synchronization time : zero_unix_time {self.zero_unix_time:.3f}")
         
 
@@ -99,13 +100,11 @@ class Node_Com(Node,Custom_Context_Obj):
             self.port.action_data.target_second = second
             self.port.action_data.target_second_frac_10000 = int(second_frac * 10000)
             self.port.send_msg('A')
-            if mode == 'Dbg':
+            if node_com_mode == 'Dbg':
                 self.get_logger().debug(f"Decision too old, last sub time {self.last_sub_topic_time:.3f}, cur_time {cur_time:.3f}, remain cur pos")
         else:
             self.port.send_msg('A')
-            if mode == 'Dbg':
-                self.get_logger().debug(f"Send action message")
-    
+
     def timer_recv_msg_callback(self):
         if_error, current_yaw, current_pitch, cur_time_minute, cur_time_second, cur_time_second_frac = self.port.recv_feedback()
         if if_error:
@@ -122,7 +121,7 @@ class Node_Com(Node,Custom_Context_Obj):
             msg.unix_time = unix_time
             self.publisher_.publish(msg)
             
-            if mode == 'Dbg':
+            if node_com_mode == 'Dbg':
                 self.get_logger().debug(f"Recv from electric sys state p: {msg.cur_pitch:.3f}, y: {msg.cur_yaw:.3f}, t:{msg.unix_time:.3f}")
             
         
@@ -140,7 +139,9 @@ class Node_Com(Node,Custom_Context_Obj):
         self.destroy_node()
 
     def _errorhandler(self,exc_value):
+
         self.get_logger().error(f"Node {self.get_name()} get error {exc_value}")
+        
         
     
 
@@ -148,7 +149,7 @@ def main(args=None):
     rclpy.init(args=args)
     
     node = Node_Com(node_com_name)
-    with Custome_Context(node_com_name,node):
+    with Custome_Context(node_com_name,node,[KeyboardInterrupt]):
         rclpy.spin(node=node)
         
     

@@ -49,3 +49,7 @@ armor_name_to_init_state:
 
 # Notice :
 # rviz2 yaw = 4.72318 pitch = 0.2 , in this sight, x if right, y is in, z is up
+
+
+# Notice :
+# config ballistic config : gun_pivot_height !!!

@@ -7,8 +7,8 @@ from .utils_network.data import Data
 from pyquaternion import Quaternion
 from visualization_msgs.msg import Marker
 
-#from autoaim_interface.msg import *
-from .haha import *
+from autoaim_interface.msg import *
+#from .haha import *
 
 
 
@@ -31,7 +31,6 @@ total_delay = 0.03 + 0.01 + 0.01 + 0.005
 predict_time_offset = 0.3
 
 topic_img_raw = {'name': 'img_raw', 'type': Image, 'qos_profile':3}
-topic_img_detected = {'name': 'img_detected', 'type': Image, 'qos_profile':3}
 topic_electric_sys_state = {'name': 'electric_sys_state', 'type':ElectricsysState , 'qos_profile':10}
 topic_detect_result = {'name': 'detect_result', 'type': DetectResult, 'qos_profile':10}
 topic_armor_pos_without_correct = {'name': 'armor_pos_without_correct', 'type': ArmorPos, 'qos_profile':10}
@@ -49,12 +48,19 @@ if_pub_car_state = False
 if_pub_armor_state_without_correct = False
 if_pub_armor_state_corrected = True
 if_pub_armor_state_predicted = False
-if_pub_img_detected = True
+
+node_webcam_mv_mode = 'Rel'
+node_detector_mode = 'Dbg'
+node_observer_mode = 'Rel'
+node_decision_maker_mode = 'Rel'
+node_com_mode = 'Rel'
+node_marker_mode = 'Rel'
+
+
                                                     # Node Webcam Mv
                                                     
 node_webcam_mv_name = 'node_webcam_mv'
 node_webcam_mv_frequency = 50
-
 
 camera_config_folder = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/autoaim_alpha/config/camera_config' 
 

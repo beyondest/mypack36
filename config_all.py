@@ -68,11 +68,11 @@ if __name__ == '__main__':
             de.visualize(img,fps,windows_name='result')
                     
             
-            #ca.detect_trackbar_config()
+            #ca._detect_trackbar_config()
             
-            #de.tradition_detector.detect_trackbar_config()
-            #de.tradition_detector.filter1.detect_trackbar_config()
-            #de.tradition_detector.filter2.detect_trackbar_config()
+            #de.tradition_detector._detect_trackbar_config()
+            #de.tradition_detector.filter1._detect_trackbar_config()
+            #de.tradition_detector.filter2._detect_trackbar_config()
             
             t4 = time.perf_counter()
             fps = round(1/(t4-t1))

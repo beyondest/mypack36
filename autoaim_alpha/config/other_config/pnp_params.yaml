@@ -18,6 +18,8 @@ dist:
   - 0.0
   - 0.0
   - 0.0
+
+# 512 * 640 is 0.5 of 1024 * 1280
 img_shrink_scale: 0.5
 
 mtx:

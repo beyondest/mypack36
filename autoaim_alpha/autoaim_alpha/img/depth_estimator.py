@@ -121,7 +121,7 @@ class Depth_Estimator:
         
             
     
-    def _detect_trackbar_config(self):
+    def __detect_trackbar_config(self):
         
         self.pnp_params.obj_wid_in_world = float(cv2.getTrackbarPos('obj_wid_in_world_mm',self.config_window_name))
         self.pnp_params.obj_hei_in_world = float(cv2.getTrackbarPos('obj_hei_in_world_mm',self.config_window_name))
@@ -136,7 +136,7 @@ class Depth_Estimator:
             return None
         
         if self.if_enable_trackbar_config:
-            self._detect_trackbar_config()
+            self.__detect_trackbar_config()
             
         img_points = np.array(big_rec, dtype=np.double)
         img_points = img_points / self.pnp_params.img_shrink_scale

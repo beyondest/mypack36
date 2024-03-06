@@ -57,10 +57,10 @@ if __name__ == "__main__":
             cv2.imshow('ori',img_ori)
             print(fps)
             
-            #ca.detect_trackbar_config()
-            #tradition_detector.detect_trackbar_config()
-            #tradition_detector.filter1.detect_trackbar_config()
-            #tradition_detector.filter2.detect_trackbar_config()
+            #ca._detect_trackbar_config()
+            #tradition_detector._detect_trackbar_config()
+            #tradition_detector.filter1._detect_trackbar_config()
+            #tradition_detector.filter2._detect_trackbar_config()
             
 
             t2 = time.perf_counter()

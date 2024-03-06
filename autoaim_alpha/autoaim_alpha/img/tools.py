@@ -119,6 +119,9 @@ def gray_stretch(image_gray:np.ndarray,strech_max:Optional[int]=None):
         
         
     min_value=img_float.min()
+    if max_value - min_value == 0:
+        return image_gray
+    
     dst=255*(img_float-min_value)/(max_value-min_value)
     dst=dst.astype(np.uint8)
     return dst
@@ -362,7 +365,12 @@ def normalize(ori_img:np.ndarray,scope:tuple=(0,1))->np.ndarray:
     if ori_img is None:
         return None
     '''(y-a)/(b-a)=(x-xmin)/(xmax-xmin)'''
-    return (ori_img-ori_img.min())/(ori_img.max()-ori_img.min())*(scope[1]-scope[0])+scope[0]
+    divide_value=ori_img.max()-ori_img.min()
+    
+    if divide_value == 0:
+        return np.zeros_like(ori_img)
+    else:
+        return (ori_img-ori_img.min())/divide_value*(scope[1]-scope[0])+scope[0]
 
 
 
@@ -402,10 +410,10 @@ def get_threshold(img_for_show_in_hist:np.ndarray,
                   max_value:int=255,
                   mode:str='Dbg'):
     
-    if mode == 'Dbg':
+    '''if mode == 'Dbg':
         d = cv2.resize(img_for_show_in_hist,(300,300))
         cv2.imshow('cal hist img',d)
-        cv2.waitKey(1)
+        cv2.waitKey(1)'''
         
     x_axis_length  = 255
     
@@ -415,7 +423,10 @@ def get_threshold(img_for_show_in_hist:np.ndarray,
     hist = np.round(hist).astype(np.int)
     thresh = np.argmax(hist)
     
-    if hist[thresh+1].item() < 30:
+    if thresh == len(hist) - 1:
+        pass
+    
+    elif hist[thresh+1].item() < 30:
         thresh +=1
     
     if mode == 'Dbg':
@@ -423,6 +434,8 @@ def get_threshold(img_for_show_in_hist:np.ndarray,
         canvas_hei = 300
         canvas = np.ones((canvas_wid,canvas_hei,3),dtype=np.uint8) * 255
         non_zero_max_index = np.argwhere(hist > 0).max()
+        if non_zero_max_index == 0:
+            non_zero_max_index = 1
         step = canvas_wid // non_zero_max_index
         for i in range(non_zero_max_index):
             if i == non_zero_max_index - 1:

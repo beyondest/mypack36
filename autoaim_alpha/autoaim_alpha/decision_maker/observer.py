@@ -60,8 +60,7 @@ class Score_Obj_for_automatic_matching(Score_Obj):
                 dis = min_dis
             return dis_criterion/dis
         
-        if attribute_id == 3 :
-            return attribute_value
+
        
 
 class Armor_Params(Params):
@@ -87,7 +86,6 @@ class Armor_Params(Params):
 class Car_Params(Params):
     def __init__(self,
                  armor_distance:list,
-                 armor_distance_variation:list,
                  armor_name:str,
                  Q:np.ndarray,
                  R:np.ndarray,
@@ -115,7 +113,6 @@ class Car_Params(Params):
         super().__init__()
         
         self.armor_distance = armor_distance
-        self.armor_distance_variation = armor_distance_variation
         
         self.armor_name = armor_name
         self.history_depth = history_depth
@@ -162,20 +159,16 @@ class Observer_Params(Params):
                   
                   [0.0,0.0,1.0]]
         
-        # max distance variation of armor distance in x and y axis, if 0, forbid armor distance change
-        self.armo_distance_variation = [0.05,0.05]
         
         self.history_depth = 5
         self.if_force_correct_after_detect = 1
         self.min_continous_num_to_apply_predict = 3
         self.min_dis_between_continous_detection = 0.1 # unit: meter
         self.min_time_between_continous_detection = 0.1 # unit: second 
-        self.min_predict_period = 0.1 # unit: second 
-        self.min_continous_num_to_predict_armor = 3
         
-        # [score_weight_for_armor_name, score_weight_for_tvec, score_weight_for_rvec, score_weight_for_confidence]
-        self.score_weights_list_for_automatic_matching = [100,10,10,10]
-        self.score_accumulation_method_list_for_automatic_matching = ['add','add','add','add']
+        # [score_weight_for_armor_name, score_weight_for_tvec, score_weight_for_rvec]
+        self.score_weights_list_for_automatic_matching = [100,10,10]
+        self.score_accumulation_method_list_for_automatic_matching = ['add','add','add']
         
         # confidence = score/score_criterion
         self.score_criterion_for_automatic_matching = 200
@@ -192,7 +185,6 @@ class Observer_Params(Params):
                 
                 
             dic = {i['armor_name']:Car_Params(i['armor_distance'],
-                                              self.armo_distance_variation,
                                               i['armor_name'],
                                               self.Q_scale * np.eye(3),
                                               np.eye(3),
@@ -288,7 +280,7 @@ class Observer:
                             t:float):
         
         
-        right_armor_name,right_armor_idx,confidence = self._automatic_matching(armor_name, tvec, rvec, t)
+        right_armor_name,right_armor_idx,confidence = self._automatic_matching(armor_name, tvec, rvec)
         
         armor_nums = self.observer_params.armor_name_to_car_params[right_armor_name].armor_nums
         armor_idx_to_list = self.observer_params.armor_name_to_car_params[right_armor_name].armor_idx_to_detect_history
@@ -456,23 +448,37 @@ class Observer:
             armor_predict_tvec (np.ndarray): _description_
             armor_predict_rvec (np.ndarray): _description_
         """
-        
         correct_history_list = self.observer_params.armor_name_to_car_params[armor_name].armor_idx_to_detect_history[armor_index]
-        predict_period = specific_time - correct_history_list[0].time
+        continuous_num = self.__find_continous_num(correct_history_list,if_check_dis_continuous=True)
+        if continuous_num < self.observer_params.min_continous_num_to_apply_predict:
+            tvec = correct_history_list[0].tvec
+            rvec = correct_history_list[0].rvec
+            
+            if self.mode == 'Dbg':
+                lr1.debug(f"Observer: Predict get not enough continuous history : {continuous_num}, use the last correct state")
+            return tvec,rvec
+        else:
         
-        tv_vec = (correct_history_list[0].tvec - correct_history_list[1].tvec) / predict_period if predict_period > 0 else np.zeros(3)
-        tv_vec_old = (correct_history_list[1].tvec - correct_history_list[2].tvec) / predict_period if predict_period > 0 else np.zeros(3)
-        ta_vec = (tv_vec - tv_vec_old) / predict_period if predict_period > 0 else np.zeros(3)
         
-        tvec = correct_history_list[0].tvec + tv_vec * predict_period + 0.5 * ta_vec * predict_period**2
-        
-        rv_vec = (correct_history_list[0].rvec - correct_history_list[1].rvec) / predict_period if predict_period > 0 else np.zeros(3)
-        rv_vec_old = (correct_history_list[1].rvec - correct_history_list[2].rvec) / predict_period if predict_period > 0 else np.zeros(3)
-        ra_vec = (rv_vec - rv_vec_old) / predict_period if predict_period > 0 else np.zeros(3)
-        
-        rvec = correct_history_list[0].rvec + rv_vec * predict_period + 0.5 * ra_vec * predict_period**2
-        
-        return tvec,rvec
+            predict_period = specific_time - correct_history_list[0].time
+            
+            tv_vec = (correct_history_list[0].tvec - correct_history_list[1].tvec) / predict_period if predict_period > 0 else np.zeros(3)
+            tv_vec_old = (correct_history_list[1].tvec - correct_history_list[2].tvec) / predict_period if predict_period > 0 else np.zeros(3)
+            ta_vec = (tv_vec - tv_vec_old) / predict_period if predict_period > 0 else np.zeros(3)
+            
+            tvec = correct_history_list[0].tvec + tv_vec * predict_period + 0.5 * ta_vec * predict_period**2
+            
+            rv_vec = (correct_history_list[0].rvec - correct_history_list[1].rvec) / predict_period if predict_period > 0 else np.zeros(3)
+            rv_vec_old = (correct_history_list[1].rvec - correct_history_list[2].rvec) / predict_period if predict_period > 0 else np.zeros(3)
+            ra_vec = (rv_vec - rv_vec_old) / predict_period if predict_period > 0 else np.zeros(3)
+            
+            rvec = correct_history_list[0].rvec + rv_vec * predict_period + 0.5 * ra_vec * predict_period**2
+            
+            if self.mode == 'Dbg':
+                lr1.debug(f"Observer: Continuous num : {continuous_num}")
+                lr1.debug(f"Observer: Predict armor {armor_name} id {armor_index} state at time {specific_time} , tvec {tvec} rvec {rvec}")
+            
+            return tvec,rvec
     
     def _automatic_matching(self,
                            detect_armor_name:str,
@@ -501,14 +507,13 @@ class Observer:
                 
                 attributes_list = [ armor_name,
                                     armor_correct_latest_params.tvec,
-                                    armor_correct_latest_params.rvec,
-                                    armor_correct_latest_params.confidence]
+                                    armor_correct_latest_params.rvec]
                 
                 
                 reference_list =  [ detect_armor_name,
                                     tvec,
-                                    rvec,
-                                    None]
+                                    rvec
+                                    ]
                 
                 score_obj_for_automatic_matching = Score_Obj_for_automatic_matching(score_obj_name,
                                                                                     attributes_list,
@@ -654,19 +659,26 @@ class Observer:
             tvec_correct = correct_history_list[0].tvec
             rvec_correct = correct_history_list[0].rvec
             confidence = 0
+            if self.mode == 'Dbg':
+                lr1.debug(f"Observer: Lost Armor {armor_name} id {armor_idx}")
+                
         # target blink but not lost
         elif focus_period > 0.1 and focus_period < 1:
             tvec_correct,rvec_correct = self.predict_armor_state_by_itself(armor_name,armor_idx,cur_time)
             confidence = 0
+            if self.mode == 'Dbg':
+                lr1.debug(f"Observer: Blink Armor {armor_name} id {armor_idx}")
         
         # target focused
         else:
             
             tvec_kf = self.observer_params.armor_name_to_car_params[armor_name].armor_idx_to_tvec_kf[armor_idx]
             rvec_kf = self.observer_params.armor_name_to_car_params[armor_name].armor_idx_to_rvec_kf[armor_idx]
-            continous_num = self.__find_continous_num(detect_history_list)
+            continous_num = self.__find_continous_num(detect_history_list,if_check_dis_continuous=False)
             id = 0
-            
+            if self.mode == 'Dbg':
+                lr1.debug(f"Observer: Focus Armor {armor_name} id {armor_idx} continous_num {continous_num}")
+                
             if continous_num == 1:
                 
                 tvec_init = detect_history_list[id].tvec
@@ -678,6 +690,7 @@ class Observer:
                 rvec_kf.set_initial_state(rvec_init,P_init)
                 
                 confidence = 0
+               
             
             else:
                 period_new = cur_time - correct_history_list[0].time  
@@ -711,10 +724,11 @@ class Observer:
                 elif continous_num == 3:
                     
                     # predict tvec
+                    correct_period = correct_history_list[id].time - correct_history_list[id + 1].time
                     dis = np.linalg.norm(detect_history_list[id].tvec - detect_history_list[id + 1].tvec)
                     R_scale = dis / self.observer_params.R_scale_dis_diff_denominator
                     R = np.eye(3) * R_scale
-                    tv_vec = (correct_history_list[id].tvec - correct_history_list[id + 1].tvec) / (correct_history_list[id].time - correct_history_list[id + 1].time)
+                    tv_vec = (correct_history_list[id].tvec - correct_history_list[id + 1].tvec) / correct_period if correct_period > 0 else np.zeros(3)
                     X_bias = tv_vec * period_new
                     A = np.eye(3)
                     Z = detect_history_list[id].tvec
@@ -724,7 +738,7 @@ class Observer:
                     dis = np.linalg.norm(detect_history_list[id].rvec - detect_history_list[id + 1].rvec)
                     R_scale = dis / self.observer_params.R_scale_dis_diff_denominator
                     R = np.eye(3) * R_scale
-                    rv_vec = (correct_history_list[id].rvec - correct_history_list[id + 1].rvec) / (correct_history_list[id].time - correct_history_list[id + 1].time)
+                    rv_vec = (correct_history_list[id].rvec - correct_history_list[id + 1].rvec) / correct_period if correct_period > 0 else np.zeros(3)
                     X_bias = rv_vec * period_new
                     A = np.eye(3)
                     Z = detect_history_list[id].rvec
@@ -735,12 +749,15 @@ class Observer:
                 
                 else:
                     # predict tvec
+                    correct_period_1 = correct_history_list[id].time - correct_history_list[id + 1].time
+                    correct_period_2 = correct_history_list[id + 1].time - correct_history_list[id + 2].time
+                    
                     dis = np.linalg.norm(detect_history_list[id].tvec - detect_history_list[id + 1].tvec)
                     R_scale = dis / self.observer_params.R_scale_dis_diff_denominator
                     R = np.eye(3) * R_scale
-                    tv_vec = (correct_history_list[id].tvec - correct_history_list[id + 1].tvec) / (correct_history_list[id].time - correct_history_list[id + 1].time)                
-                    tv_vec_old = (correct_history_list[id + 1].tvec - correct_history_list[id + 2].tvec) / (correct_history_list[id + 1].time - correct_history_list[id + 2].time)                    
-                    ta_vec = (tv_vec - tv_vec_old) / (correct_history_list[id].time - correct_history_list[id + 1].time)
+                    tv_vec = (correct_history_list[id].tvec - correct_history_list[id + 1].tvec) / correct_period_1 if correct_period_1 > 0 else np.zeros(3)                
+                    tv_vec_old = (correct_history_list[id + 1].tvec - correct_history_list[id + 2].tvec) / correct_period_2 if correct_period_2 > 0 else np.zeros(3)                    
+                    ta_vec = (tv_vec - tv_vec_old) / correct_period_1 if correct_period_1 > 0 else np.zeros(3)
                     X_bias = tv_vec * period_new + ta_vec * (period_new ** 2) / 2
                     A = np.eye(3)
                     Z = detect_history_list[id].tvec
@@ -750,9 +767,9 @@ class Observer:
                     dis = np.linalg.norm(detect_history_list[id].rvec - detect_history_list[id + 1].rvec)
                     R_scale = dis / self.observer_params.R_scale_dis_diff_denominator
                     R = np.eye(3) * R_scale
-                    rv_vec = (correct_history_list[id].rvec - correct_history_list[id + 1].rvec) / (correct_history_list[id].time - correct_history_list[id + 1].time)
-                    rv_vec_old = (correct_history_list[id + 1].rvec - correct_history_list[id + 2].rvec) / (correct_history_list[id + 1].time - correct_history_list[id + 2].time)
-                    ra_vec = (rv_vec - rv_vec_old) / (correct_history_list[id].time - correct_history_list[id + 1].time)
+                    rv_vec = (correct_history_list[id].rvec - correct_history_list[id + 1].rvec) / correct_period_1 if correct_period_1 > 0 else np.zeros(3)
+                    rv_vec_old = (correct_history_list[id + 1].rvec - correct_history_list[id + 2].rvec) / correct_period_2 if correct_period_2 > 0 else np.zeros(3)
+                    ra_vec = (rv_vec - rv_vec_old) / correct_period_1 if correct_period_1 > 0 else np.zeros(3)
                     X_bias = rv_vec * period_new + ra_vec * (period_new ** 2) / 2
                     A = np.eye(3)
                     Z = detect_history_list[id].rvec
@@ -799,7 +816,8 @@ class Observer:
  
  
     def __find_continous_num(self,
-                          armor_history_list:list)->int:
+                          armor_history_list:list,
+                          if_check_dis_continuous:bool=False)->int:
         """Find how many times the armor(id) has been detected continuously latest
         Warning: only detect the continuity of time, not the continuity of position.\n
         Args:
@@ -811,12 +829,18 @@ class Observer:
         """
         
         continous_num = 1
-        for i in range(self.observer_params.history_depth):
+        for i in range(self.observer_params.history_depth - 1):
             dt = armor_history_list[i].time - armor_history_list[i+1].time
             
             if dt > self.observer_params.min_time_between_continous_detection:
+                
                 break
             else:
+                if if_check_dis_continuous:
+                    dis = np.linalg.norm(armor_history_list[i].tvec - armor_history_list[i+1].tvec)
+                    if dis > self.observer_params.min_dis_between_continous_detection:
+                        break
+                    
                 continous_num += 1
                 
         return continous_num
@@ -832,11 +856,10 @@ class Observer:
         period = cur_time - armor_latest_params.time
         
         return period
+    
     def __get_latest_focus_armor_idx(self,
                                      armor_name:str):
         
-        t = 0
-        id = -1
         car_params = self.observer_params.armor_name_to_car_params[armor_name]
         max_id = np.argmax([car_params.armor_idx_to_detect_history[i][0].time for i in range(car_params.armor_nums)])
         

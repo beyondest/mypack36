@@ -49,7 +49,7 @@ class Node_Observer(Node,Custom_Context_Obj):
         
         
 
-        self.observer =  Observer(mode,
+        self.observer =  Observer(node_observer_mode,
                                   observer_config_yaml_path,
                                   enemy_car_list) 
         
@@ -65,12 +65,11 @@ class Node_Observer(Node,Custom_Context_Obj):
                 self.get_logger().info(f"Init Armor State:\n{armor_state}\n")
         
         
-        if mode == 'Dbg':
+        if node_observer_mode == 'Dbg':
             self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG)
         
         
     def detect_sub_callback(self, msg:DetectResult):
-        
         all_target_list = []
         for each_detect_result in msg.detect_result:
             
@@ -86,22 +85,22 @@ class Node_Observer(Node,Custom_Context_Obj):
             rvec = q.get_axis() * q.angle
             t = each_detect_result.pose.header.stamp.sec + each_detect_result.pose.header.stamp.nanosec * 1e-9
             all_target_list.append({'armor_name':armor_name,'tvec':tvec,'rvec':rvec,'time':t})
-           
+        
+        filtered_target_list = []
         for each_target in all_target_list:
             if self.observer._if_wrong_pic(each_target['armor_name'],each_target['tvec'],each_target['rvec']):
-                all_target_list.remove(each_target)
-                self.get_logger().debug(f"Remove wrong pic {each_target['armor_name']} {each_target['tvec']} {each_target['rvec']}")
-            
-        self.observer.update_by_detection_list(all_target_list)
-        
-        if mode == 'Dbg':
-            self.get_logger().debug(f"Detect All Target List:\n{all_target_list}")
+                if node_observer_mode == 'Dbg':
+                    self.get_logger().debug(f"Remove wrong pic {each_target['armor_name']} {each_target['tvec']} {each_target['rvec']}")
+            else:
+                filtered_target_list.append(each_target)
+                
+        self.observer.update_by_detection_list(filtered_target_list)
         
         if if_pub_armor_state_without_correct:
             armor_state_list = self.observer.get_armor_latest_state(if_correct_state=False)
+            
             self.publish_armor_state(self.pub_armor_pos_without_correct,armor_state_list)
-           
-        
+            
         
     def timer_correct_callback(self):
         
@@ -109,13 +108,13 @@ class Node_Observer(Node,Custom_Context_Obj):
         armor_name_to_idx = self.observer.update_by_correct_all()
         t2 = time.perf_counter()
         
-        if mode == 'Dbg':
+        if node_observer_mode == 'Dbg':
             self.get_logger().debug(f"Observer update predition all, spend time {t2-t1:.4f}s")
         
         if if_pub_armor_state_corrected:
             armor_state_list = self.observer.get_armor_latest_state()
             self.publish_armor_state(self.pub_armor_pos_corrected,armor_state_list)
-            if mode == 'Dbg':
+            if node_observer_mode == 'Dbg':
                 for armor_state in armor_state_list:
                     if armor_state['armor_name'] in armor_name_to_idx:
                         if armor_state['armor_id'] == armor_name_to_idx[armor_state['armor_name']]:
@@ -126,7 +125,7 @@ class Node_Observer(Node,Custom_Context_Obj):
             car_state_list = self.observer.get_car_latest_state()
             self.publish_car_state(self.pub_car_pos,car_state_list)
             
-            if mode == 'Dbg':
+            if node_observer_mode == 'Dbg':
                 self.get_logger().debug(f"Car State:\n{car_state_list}\n")      
                 
             
@@ -149,7 +148,7 @@ class Node_Observer(Node,Custom_Context_Obj):
                 
             self.publish_armor_state(self.pub_armor_pos_predicted,armor_state_list)
             
-            if mode == 'Dbg':
+            if node_observer_mode == 'Dbg':
                 self.get_logger().debug(f"Predicted Armor State:\n{armor_state_list}\n")
             
         else:
@@ -213,6 +212,7 @@ class Node_Observer(Node,Custom_Context_Obj):
         self.destroy_node()
 
     def _errorhandler(self,exc_value):
+
         self.get_logger().error(f"Node {self.get_name()} get error {exc_value}")
         
 
@@ -220,7 +220,7 @@ def main(args=None):
     rclpy.init(args=args)
     my_node = Node_Observer(node_decision_maker_name)
     
-    with Custome_Context(node_observer_name,my_node):
+    with Custome_Context(node_observer_name,my_node,[KeyboardInterrupt]):
         rclpy.spin(my_node)
         
     rclpy.shutdown()

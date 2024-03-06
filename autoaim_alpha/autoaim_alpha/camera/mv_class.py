@@ -84,9 +84,10 @@ class Mindvision_Camera(Custom_Context_Obj):
         self.camera_run_platform = camera_run_platform
         self.pingpong_count = 0
         self.armor_color = armor_color
-        self.if_save_img = False
         self.random_config_count = 0
-        self.if_enble_save_video = False
+        self.if_enable_save_video = False
+        self.if_save_img = False
+        self.if_enable_trackbar_config = False
         self.hcamera = self._init()
         
         if not self.if_use_last_params:
@@ -112,6 +113,7 @@ class Mindvision_Camera(Custom_Context_Obj):
         self.isp_window_name = window_name
         self.press_key_to_save = press_key_to_save
         self.save_yaml_path = save_yaml_path
+        self.if_enable_trackbar_config = True
         self._visualize_isp_config_by_isp_params()        
         
     def enable_save_img(self,
@@ -137,7 +139,7 @@ class Mindvision_Camera(Custom_Context_Obj):
     
     def enbable_save_video(self,save_video_path:str = './tmp_video.avi',fps:int = 30):
         
-        self.if_enble_save_video = True
+        self.if_enable_save_video = True
         self.video_writer = cv2.VideoWriter()
         fourcc = self.video_writer.fourcc(*'mp4v')
         self.video_writer.open(save_video_path,fourcc,fps,(self.isp_params.grab_resolution_wid,self.isp_params.grab_resolution_hei))
@@ -185,7 +187,10 @@ class Mindvision_Camera(Custom_Context_Obj):
         
         
         t1 = time.perf_counter()
-        
+        if self.if_enable_trackbar_config:
+            self._detect_trackbar_config()
+            
+            
         prawdata,pframehead=mvsdk.CameraGetImageBuffer(self.hcamera,CAMERA_GRAB_IMG_WATI_TIME_MS)
         t2 = time.perf_counter()
         if self.pingpong_exposure is not None:
@@ -226,7 +231,7 @@ class Mindvision_Camera(Custom_Context_Obj):
                     img_name = f'{self.save_folder}/{time.time()}.{self.img_name_suffix}'
                     cv2.imwrite(img_name,dst)
                     
-        if dst is not None and self.if_enble_save_video:
+        if dst is not None and self.if_enable_save_video:
             self.video_writer.write(dst)
             
         if self.pingpong_exposure is not None:
@@ -335,7 +340,7 @@ class Mindvision_Camera(Custom_Context_Obj):
         self.roi_resolution_xy = [wid,hei]
         
         
-    def detect_trackbar_config(self):
+    def _detect_trackbar_config(self):
         
         self._update_camera_isp_params_from_trackbar()
         self._isp_config_by_isp_params()
@@ -489,7 +494,7 @@ class Mindvision_Camera(Custom_Context_Obj):
         mvsdk.CameraAlignFree(self.pframebuffer_address)
         lr1.info(f"CAMERA : camera id {self.device_id} , nickname {self.device_nickname} closed")
         
-        if self.if_enble_save_video:
+        if self.if_enable_save_video:
             self.video_writer.release()
             lr1.info(f"CAMERA :  video released")
             

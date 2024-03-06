@@ -15,7 +15,8 @@ lr1 = get_logger('logger1',
                  if_show_on_terminal=True,
                  if_save_to_disk=True,
                  terminal_leval=WARNING,
-                 save_leval=DEBUG
+                 save_leval=DEBUG,
+                 save_folder_name='/home/liyuxuan/.ros/log/custom_log'
                  )
 
 

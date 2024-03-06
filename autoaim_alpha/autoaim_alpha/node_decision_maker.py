@@ -24,17 +24,17 @@ class Node_Decision_Maker(Node,Custom_Context_Obj):
                                                       self.sub_predict_pos_callback,
                                                       topic_armor_pos_corrected['qos_profile'])
                                         
-        self.ballestic = Ballistic_Predictor(mode,
+        self.ballestic = Ballistic_Predictor(node_decision_maker_mode,
                                              ballistic_predictor_config_yaml_path)
         
-        self.decision_maker = Decision_Maker(mode,
+        self.decision_maker = Decision_Maker(node_decision_maker_mode,
                                              decision_maker_config_yaml_path,
                                              enemy_car_list)
 
         self.timer = self.create_timer(1/make_decision_freq, self.make_decision_callback)
         self.cur_yaw = 0
         self.cur_pitch = 0
-        if mode == 'Dbg':
+        if node_decision_maker_mode == 'Dbg':
             self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG)
 
 
@@ -68,9 +68,7 @@ class Node_Decision_Maker(Node,Custom_Context_Obj):
                                                    msg.pose.header.stamp.sec + msg.pose.header.stamp.nanosec/1e9
                                                    )
         
-        #if mode == 'Dbg':
-            #self.get_logger().debug(f"Decision Maker update enemy side info {msg.armor_name}, id {msg.armor_id}")
-        
+
         
     def make_decision_callback(self):
         target_armor = self.decision_maker.choose_target()
@@ -96,11 +94,13 @@ class Node_Decision_Maker(Node,Custom_Context_Obj):
             com_msg.reserved_slot = 0
             self.pub_ele_sys_com.publish(com_msg)
             
-            if mode == 'Dbg':
-                self.get_logger().debug(f"Make Decision: target_armor : {target_armor.name}, id : {target_armor.id}, tvec : {target_armor.tvec}, rvec : {target_armor.rvec}, confidence : {target_armor.confidence}, time : {target_armor.time:.3f}, rel_yaw : {rel_yaw:.3f}, abs_pitch : {abs_pitch:.3f}, flight_time : {flight_time:.3f}, if_success : {if_success}, cur_yaw : {self.cur_yaw:.3f}, cur_pitch : {self.cur_pitch:.3f}, target_abs_yaw : {com_msg.target_abs_yaw}, target_abs_pitch : {com_msg.target_abs_pitch}, reach_unix_time : {com_msg.reach_unix_time:.3f}")
             
+            if node_decision_maker_mode == 'Dbg':
+                self.get_logger().debug(f"Choose Target {target_armor.name} id {target_armor.id} tvec {target_armor.tvec} rvec {target_armor.rvec} time {target_armor.time} ")
+                self.get_logger().debug(f"Make decision : fire_times {com_msg.fire_times}  target_abs_pitch {com_msg.target_abs_pitch:.3f} target_abs_yaw {com_msg.target_abs_yaw:.3f} reach_unix_time {com_msg.reach_unix_time:.3f}")
+                    
         else:
-            self.get_logger().error(f"Get fire yaw pitch fail,not publish com msg, target pos: {target_armor.tvec}")
+            self.get_logger().warn(f"Get fire yaw pitch fail,not publish com msg, target pos: {target_armor.tvec}")
 
     
     def _start(self):
@@ -113,6 +113,7 @@ class Node_Decision_Maker(Node,Custom_Context_Obj):
         self.destroy_node()
 
     def _errorhandler(self,exc_value):
+
         self.get_logger().error(f"Node {self.get_name()} get error {exc_value}")
         
         
@@ -122,7 +123,7 @@ def main(args=None):
     
     node = Node_Decision_Maker(node_decision_maker_name)
     
-    with Custome_Context(node_decision_maker_name,node):
+    with Custome_Context(node_decision_maker_name,node,[KeyboardInterrupt]):
         rclpy.spin(node)
         
     

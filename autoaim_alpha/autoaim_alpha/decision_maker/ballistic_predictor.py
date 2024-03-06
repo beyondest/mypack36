@@ -132,7 +132,7 @@ class Ballistic_Predictor:
                 
             if self.mode == 'Dbg':
                 
-                lr1.error(f"Ballistic_Predictor : Target out of range, return current yaw and pitch,target_hei_above_ground: {target_hei_above_ground:.3f}, target_dis_in_cam_frame: {target_pos_in_camera_frame[1]:.3f}, shooting_hei_range: {self.params.target_min_hei_above_ground:.3f} - {self.params.max_shooting_hei_above_ground:.3f}, max_shooting_dis_in_pivot_frame: {self.params.max_shooting_dis_in_pivot_frame:.3f}")
+                lr1.warn(f"Ballistic_Predictor : Target out of range, return current yaw and pitch,target_hei_above_ground: {target_hei_above_ground:.3f}, target_dis_in_cam_frame: {target_pos_in_camera_frame[1]:.3f}, shooting_hei_range: {self.params.target_min_hei_above_ground:.3f} - {self.params.max_shooting_hei_above_ground:.3f}, max_shooting_dis_in_pivot_frame: {self.params.max_shooting_dis_in_pivot_frame:.3f}")
                 
             return [cur_yaw, cur_pitch, 0, False]
         
@@ -311,6 +311,7 @@ class Ballistic_Predictor:
                 rt = r
             
             v_l = np.linalg.norm(v)
+            
             v_u = v / v_l
             f = -k * v_l**2 * v_u
             a = np.array([0.0, -g]) + f / m
@@ -383,9 +384,9 @@ class Ballistic_Predictor:
         a = self.params.pitch_range[0]
         b = self.params.pitch_range[1]
         
-        if self.mode == 'Dbg':
-            RK4_spend_time_all = 0.0
-            count = 0
+        
+        RK4_spend_time_all = 0.0
+        count = 0
         
         x = a
         x_new = (a + b) / 2
@@ -396,26 +397,31 @@ class Ballistic_Predictor:
             [fx , flight_time] , RK4_spend_time = self._R_K4_air_drag_ballistic_model(x_new, target_tvec_yoz_in_pivot_frame,'dis')
             [fx_ , _] , RK4_spend_time2 = self._R_K4_air_drag_ballistic_model(x_new + dx, target_tvec_yoz_in_pivot_frame,'dis')
             dfx = (fx_ - fx) / dx 
-            x = x_new
-            x_new = x - fx / dfx * c
             
-            if self.mode == 'Dbg':
-                RK4_spend_time_all += RK4_spend_time + RK4_spend_time2
-                count += 1    
+            x = x_new
+            if dfx == 0:
+                x_new = x
+                break
+            else:
+                x_new = x - fx / dfx * c
+            
+            RK4_spend_time_all += RK4_spend_time + RK4_spend_time2
+                
+            count += 1    
             
             
             if abs(fx) < self.params.newton_error_tolerance:
                 if INRANGE(x, self.params.pitch_range):
                     if_success = True
                 else:
-                    lr1.error(f"Ballistic_Predictor : newton failed, solved pitch out of range, {x}")
+                    lr1.warn(f"Ballistic_Predictor : newton failed, solved pitch out of range, {x}")
                 break
             if count >= self.params.newton_max_iter:
                 if abs(fx) < self.params.newton_error_tolerance:
                     if INRANGE(x, self.params.pitch_range):
                         if_success = True
                     else:
-                        lr1.error(f"Ballistic_Predictor : newton failed, solved pitch out of range, {x}")
+                        lr1.warn(f"Ballistic_Predictor : newton failed, solved pitch out of range, {x}")
                     break
                 else:
                     if 1/c<3:
@@ -423,7 +429,7 @@ class Ballistic_Predictor:
                         c = c / 2
                         count = 0
                     else:
-                        lr1.error(f"Ballistic_Predictor : newton failed, iter too many times, final error {fx}")
+                        lr1.warn(f"Ballistic_Predictor : newton failed, iter too many times, final error {fx}")
                         break
                 
             

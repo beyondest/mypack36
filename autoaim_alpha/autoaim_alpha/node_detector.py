@@ -29,25 +29,38 @@ class Node_Detector(Node,Custom_Context_Obj):
                                             topic_detect_result['name'],
                                             topic_detect_result['qos_profile']
                                             )
-        self.pub_img_detected = self.create_publisher(topic_img_detected['type'],
-                                             topic_img_detected['name'],
-                                             topic_img_detected['qos_profile'])
-
         
+        if mode == 'Dbg':
+            
+            self.sub_ele_sys_com = self.create_subscription(topic_electric_sys_com['type'],
+                                            topic_electric_sys_com['name'],
+                                            self.sub_ele_sys_com_callback,
+                                            topic_electric_sys_com['qos_profile'])
+            
+            self.fire_times = 0
+            self.target_abs_pitch = 0.0
+            self.target_abs_yaw = 0.0
         
         self.cv_bridge = CvBridge()
         self.armor_detector = Armor_Detector(
                                             armor_color=armor_color,
-                                            mode=mode,
+                                            mode=node_detector_mode,
                                             tradition_config_folder=tradition_config_folder,
                                             net_config_folder=net_config_folder,
                                             depth_estimator_config_yaml=depth_estimator_config_yaml_path
                                              )
         
+        self.armor_detector.tradition_detector.enable_preprocess_config()
+        self.armor_detector.tradition_detector.filter1.enable_trackbar_config()
+        self.armor_detector.tradition_detector.filter2.enable_trackbar_config()
+        if node_detector_mode == 'Dbg':
+            self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG)
+
         self.pre_time = time.perf_counter()
         self.fps = 0
         self.window_name = 'result'
-        if mode == 'Dbg':
+        
+        if node_detector_mode == 'Dbg':
             self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG)
         
          
@@ -57,23 +70,36 @@ class Node_Detector(Node,Custom_Context_Obj):
         
         result , find_time = self.armor_detector.get_result(img,img)
         self.cur_time = time.perf_counter()
-        self.fps = round(1/(self.cur_time-self.pre_time))
+        if self.cur_time - self.pre_time  == 0:
+            self.fps = 0
+        else:
+            self.fps = round(1/(self.cur_time-self.pre_time))
+            
         self.pre_time = self.cur_time
         
-        if if_pub_img_detected:
-            visualize_result = self.armor_detector.visualize(img,fps=self.fps,windows_name=None)
-            self.pub_img_detected.publish(self.cv_bridge.cv2_to_imgmsg(visualize_result,camera_output_format))
-            self.get_logger().debug(f"publish visualize result success")
+        
+        
+        if mode == 'Dbg':
+            self.armor_detector.visualize(img,
+                                          fps=self.fps,
+                                          windows_name=self.window_name,
+                                          fire_times=self.fire_times,
+                                          target_abs_pitch=self.target_abs_pitch,
+                                          target_abs_yaw=self.target_abs_yaw)
+        
+    
+            
             
         
         if result is not None:
             msg = DetectResult()
+            
             t = self.get_clock().now().to_msg()
             for each_result in result:
                 ed = EachDetectResult()
                 
-                ed.armor_name = each_result['name']
-                ed.confidence = each_result['probability']
+                ed.armor_name = each_result['result']
+                ed.confidence = float(each_result['probability'])
                 ed.pose.header.stamp = t
                 ed.pose.header.frame_id = 'camere_frame'
                 ed.pose.pose.position.x = each_result['pos'][0]
@@ -88,15 +114,24 @@ class Node_Detector(Node,Custom_Context_Obj):
                 
                 msg.detect_result.append(ed)
                 
-                log_info = f"armor_name:{ed.armor_name},confidence:{ed.confidence},pos:{ed.pose.pose.position},orientation:{ed.pose.pose.orientation} time:{t.sec}s{t.nanosec/1000000}ns"
+                log_info = f"armor_name:{ed.armor_name},confidence:{ed.confidence:.2f},pos:{ed.pose.pose.position},orientation:{ed.pose.pose.orientation} time:{t.sec}s{t.nanosec/1000000}ns"
                 
                 self.get_logger().debug(f"Find target : {log_info} spend time:{find_time}s")
-                    
-            self.pub_img_detected.publish(msg)
+            
+            self.pub_detect_result.publish(msg)
             self.get_logger().debug(f"publish detect result success")
+            
         else:
             self.get_logger().debug(f"no target found")
+    
+    def sub_ele_sys_com_callback(self,msg:ElectricsysCom):
         
+        self.target_abs_yaw = msg.target_abs_yaw
+        self.target_abs_pitch = msg.target_abs_pitch
+        self.fire_times = msg.fire_times
+        
+        
+            
     def _start(self):
         
         cv2.namedWindow(self.window_name,cv2.WINDOW_AUTOSIZE)
@@ -109,6 +144,7 @@ class Node_Detector(Node,Custom_Context_Obj):
         self.destroy_node()
 
     def _errorhandler(self,exc_value):
+
         self.get_logger().error(f"Node {self.get_name()} get error {exc_value}")
         
         
@@ -116,7 +152,7 @@ def main(args = None):
     
     rclpy.init(args=args)
     node = Node_Detector(node_detector_name)
-    with Custome_Context(node_detector_name,node):
+    with Custome_Context(node_detector_name,node,[KeyboardInterrupt]):
         rclpy.spin(node)
     rclpy.shutdown()
         

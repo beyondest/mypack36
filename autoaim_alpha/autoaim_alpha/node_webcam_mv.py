@@ -33,12 +33,15 @@ class Node_Webcam_MV(Node,Custom_Context_Obj):
         
         self.mv = Mindvision_Camera(
                                     output_format = camera_output_format,
-                                    camera_mode=mode,
+                                    camera_mode=node_webcam_mv_mode,
                                     camera_config_folder = camera_config_folder,
                                     armor_color=armor_color
                                     )
-        if mode == 'Dbg':
-            self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG)
+        
+        
+        self.mv.enable_trackbar_config()
+        if node_webcam_mv_mode == 'Dbg':
+            self.get_logger().set_level(rclpy.logging.LoggingSeverity.INFO)
         
         
     def timer_pub_img_callback(self):
@@ -52,7 +55,6 @@ class Node_Webcam_MV(Node,Custom_Context_Obj):
         else:
             self.get_logger().error("No img get from camera")
             
-        self.get_logger().info("Publish img success")
     
     def _start(self):
         
@@ -67,8 +69,9 @@ class Node_Webcam_MV(Node,Custom_Context_Obj):
         
 
     def _errorhandler(self,exc_value):
-        self.get_logger().error(f"Node {self.get_name()} get error : {exc_value}")
-    
+
+        self.get_logger().error(f"Node {self.get_name()} get error {exc_value}")
+        
 def main(args = None):
     
     rclpy.init(args=args)
@@ -78,7 +81,7 @@ def main(args = None):
                           node_webcam_mv_frequency
                           )
     
-    with Custome_Context(node_webcam_mv_name,node):
+    with Custome_Context(node_webcam_mv_name,node,[KeyboardInterrupt]):
         rclpy.spin(node)
         
     rclpy.shutdown()

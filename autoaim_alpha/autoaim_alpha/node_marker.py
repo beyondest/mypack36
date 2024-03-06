@@ -159,7 +159,7 @@ class Node_Marker(Node,Custom_Context_Obj):
         
         
             
-        if mode == 'Dbg':
+        if node_marker_mode == 'Dbg':
             self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG)
 
     def armor_pos_corrected_listener(self, msg:ArmorPos):
@@ -192,8 +192,6 @@ class Node_Marker(Node,Custom_Context_Obj):
                                            id_offset=200,
                                            pos_offset=np.array([0,0,0.1]))
                 
-                if mode == 'Dbg':
-                    self.get_logger().debug(f"Publish marker {armor_marker.armor_name} {armor_marker.armor_id} :: {armor_marker.marker.id}")
     
     def _add_text_to_marker(self,
                             marker:Marker,
@@ -231,14 +229,15 @@ class Node_Marker(Node,Custom_Context_Obj):
         self.destroy_node()
 
     def _errorhandler(self,exc_value):
-        self.get_logger().error(f"Node {self.get_name()} get error {exc_value}")
 
+        self.get_logger().error(f"Node {self.get_name()} get error {exc_value}")
+        
 def main(args=None):
     
     rclpy.init(args=args)
     node = Node_Marker(node_marker_name)
     
-    with Custome_Context(node_marker_name,node):
+    with Custome_Context(node_marker_name,node,[KeyboardInterrupt]):
         rclpy.spin(node)
         
     rclpy.shutdown()
