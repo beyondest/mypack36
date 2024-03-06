@@ -1,5 +1,8 @@
 *.log
-
+*.onnx
+*.trt
+*.jpg
+*.png
 autoaim_alpha/custom_log/*
 autoaim_alpha/camera/custom_log/*
 autoaim_alpha/Camera/*
