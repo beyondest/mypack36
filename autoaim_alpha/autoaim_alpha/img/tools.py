@@ -198,7 +198,7 @@ def draw_center_list(center_list:list,
 def add_text(img_bgr:np.ndarray,
              name:str,
              value,
-             pos:tuple=(-1,-1),
+             pos=None,
              font:int=cv2.FONT_HERSHEY_SIMPLEX,
              color:tuple=(0,0,0),
              scale_size: float= 0.5
@@ -206,13 +206,13 @@ def add_text(img_bgr:np.ndarray,
     
     '''
     show name:value on the position of pos(x,y)\n
-    if pos =(-1,-1), then auto position\n
+    if pos is None, then auto position\n
     return img_bgr
     '''
     
     img_size_yx=(img_bgr.shape[0],img_bgr.shape[1])
-    if pos==(-1,-1):
-        
+    
+    if pos is None:
         pos=(round(img_size_yx[1]/10),round(img_size_yx[0]/10))
     
     

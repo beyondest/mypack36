@@ -18,8 +18,12 @@ class PNP_Params(Params):
         self.obj_wid_in_world = 100.0 # unit: mm
         self.obj_hei_in_world = 100.0 # unit: mm
         self.method_name = 'pnp'
+        self.small_armor_name_list = ['2x','3x','4x','5x','basex','sentry',
+                                      'B2','B3','B4','B5',
+                                      'R2','R3','R4','R5'
+                                      ]
         
-
+        self.expand_rate = 1.5 # expand light bar to get the whole armor
 
 
 

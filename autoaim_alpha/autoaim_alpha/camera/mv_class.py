@@ -61,13 +61,14 @@ class Mindvision_Camera(Custom_Context_Obj):
                  pingpong_exposure:Union[None,list] = None,
                  camera_mode:str = 'Dbg''Rel',
                  camera_config_folder:str = './camera_configs',
-                 armor_color:str = 'red'
+                 armor_color:str = 'red',
+                 if_yolov5:bool = True
                  ) -> None:
         
         CHECK_INPUT_VALID(camera_run_platform,'linux','windows')
         CHECK_INPUT_VALID(camera_mode,'Dbg','Rel')
         CHECK_INPUT_VALID(armor_color,'red','blue')
-        
+        self.if_yolov5 = if_yolov5
         
         self.isp_params = Isp_Params()
 
@@ -148,12 +149,14 @@ class Mindvision_Camera(Custom_Context_Obj):
     def load_params_from_folder(self,folder_path:str):
         if not os.path.exists(folder_path):
             raise FileNotFoundError(f'CAMERA : {folder_path} not exists')
-        
-        if self.armor_color == 'blue':
-            custom_isp_yaml_path = os.path.join(folder_path,'blue_isp_params.yaml')
+        if self.if_yolov5:
+            custom_isp_yaml_path = os.path.join(folder_path,'yolov5_isp_params.yaml')
         else:
-            custom_isp_yaml_path = os.path.join(folder_path,'red_isp_params.yaml')
-            
+            if self.armor_color == 'blue':
+                custom_isp_yaml_path = os.path.join(folder_path,'blue_isp_params.yaml')
+            else:
+                custom_isp_yaml_path = os.path.join(folder_path,'red_isp_params.yaml')
+                
         if not os.path.exists(custom_isp_yaml_path):
             raise FileNotFoundError(f'CAMERA : {custom_isp_yaml_path} not exists')
         

@@ -68,7 +68,7 @@ class Node_Detector(Node,Custom_Context_Obj):
         
         img = self.cv_bridge.imgmsg_to_cv2(data,camera_output_format)
         
-        result , find_time = self.armor_detector.get_result(img,img)
+        result , find_time = self.armor_detector.get_result(img)
         self.cur_time = time.perf_counter()
         if self.cur_time - self.pre_time  == 0:
             self.fps = 0

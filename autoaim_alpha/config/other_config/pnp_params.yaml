@@ -54,3 +54,23 @@ obj_hei_in_world: 125.0
 
 # pnp or pnp_fix
 method_name: pnp
+
+
+small_armor_name_list:
+- 2x
+- 3x
+- 4x
+- 5x
+- basex
+- sentry
+- B2
+- B3
+- B4
+- B5
+- R2
+- R3
+- R4
+- R5
+
+# if use tradition method, you have to set expand rate in code file
+expand_rate: 1.5

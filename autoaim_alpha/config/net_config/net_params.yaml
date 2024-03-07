@@ -1,10 +1,21 @@
-confidence: 0.75
 engine_type: ort
 input_dtype: float32
-input_name: input
+
+# yolov5:images, mymodel:input
+input_name: images
+
+# only for classification model, yolo is 640 * 640
 input_size:
 - 32
 - 32
+
+# yolov5:output0, mymodel:output
 output_name: output
 
-
+yolov5: True
+# for nms params 
+conf_thres: 0.80
+iou_thres: 0.45
+enemy_armor_index_list: None
+agnostic: False
+max_det: 20

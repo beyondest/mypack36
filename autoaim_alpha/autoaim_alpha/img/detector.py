@@ -11,7 +11,7 @@ from ..utils_network.mymodel import *
 from ..utils_network.actions import *
 from .filter import *
 from .depth_estimator import *
-
+from ..utils_network.api_for_yolov5 import Yolov5_Post_Processor
 ########################################### Params ##############################################################
 
 class Tradition_Params(Params):
@@ -32,12 +32,18 @@ class Net_Params(Params):
     def __init__(self) -> None:
         super().__init__()
         self.engine_type = 'ort'
-        self.input_name = 'inputs'
-        self.output_name = 'outputs'
+        self.input_name = 'input'
+        self.output_name = 'output'
         self.input_size =  NET_INPUT_SIZE
         self.input_dtype = NET_INPUT_DTYPE
-        self.confidence = NET_CONFIDENCE
         
+        
+        self.yolov5 = True
+        self.conf_thres = 0.25
+        self.iou_thres = 0.45
+        self.enemy_armor_index_list = [0,1]
+        self.agnostic = False
+        self.max_det = 20
         
 
 
@@ -60,59 +66,71 @@ class Armor_Detector:
         self.mode = mode
         
         self.reset_result()
-        
-        
+            
         self.net_detector = Net_Detector(
                                          mode=mode,
                                          net_config_folder=net_config_folder
                                          )
-    
-        
-        self.tradition_detector = Tradition_Detector(
-                                                       armor_color,
-                                                       mode,
-                                                       tradition_config_folder_path=tradition_config_folder,
-                                                       roi_single_shape=self.net_detector.params.input_size,
-                                                       save_roi_key=save_roi_key
-                                                       )  
-          
         self.depth_estimator = Depth_Estimator(depth_estimator_config_yaml,
-                                                mode=mode
-                                                )
+                                            mode=mode
+                                            )
+        
+        if self.net_detector.params.yolov5:
+            lr1.warn('Will apply yolov5 detect')
+        else:
+            lr1.warn('Will apply tradition detect')
+        
+            self.tradition_detector = Tradition_Detector(
+                                                        armor_color,
+                                                        mode,
+                                                        tradition_config_folder_path=tradition_config_folder,
+                                                        roi_single_shape=self.net_detector.params.input_size,
+                                                        save_roi_key=save_roi_key
+                                                        )  
+        
+
         
     @timing(1)
-    def get_result(self,img_bgr:np.ndarray,img_bgr_exposure2:np.ndarray)->Union[list,None]:
+    def get_result(self,img:np.ndarray)->Union[list,None]:
         """@timing(1)\n
         Get result of armor detection\n
+        Input:
+            img:
+                if_yolov5:
+                    img is BGR image with shape (640,640,3)
+                else:
+                    img is BGR image with shape > net_input_size
         Returns:
-            Union[list,None]:
-            
-                if success,return a list of dict,each dict contains\n
-                'big_rec'
-                'center'
-                'result'
-                'probability'
-                'rvec'
-                'pos'\n
-                
-                if fail,return None
+            list of dict or None
+                big_rec: conts of big rec
+                result: armor name
+                probability: confidence of armor
+                rvec:   rvec in camera frame, notice xyz is in rviz frame
+                pos:    tvec in camera frame, notice xyz is in rviz frame
                 
         """
+        
         self.reset_result()
-        self._tradition_part(img_bgr,img_bgr_exposure2)
         
-        self._net_part()
-        self._filter_part()
-        
-        if self.success_flag == True:
-            if self.mode == 'Dbg':
-                
-                pass
-            else:
-                pass
+        if self.net_detector.params.yolov5:
+            img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
+            self._net_part(img)
+            lr1.warn('yolov5 need RGB, may be faster if you set camera output RGB')
             
+        else:
+            self._tradition_part(img)
+            self._net_part()
+            self._filter_part()                        
+        
+        self._depth_and_final_part()
+        
+        if len(self.final_result_list) > 0:
+            if self.mode == 'Dbg':
+                lr1.debug(f'Detector : Final result nums: {len(self.final_result_list)}')
             return self.final_result_list
         else:
+            if self.mode == 'Dbg':
+                lr1.debug('Detector : Final result nums: 0')
             return None
 
     
@@ -137,7 +155,7 @@ class Armor_Detector:
                 add_text(   img,
                             f'pro:{i["probability"]:.2f}',
                             value=i['result'],
-                            pos=(round(i['center'][0]+20),round(i['center'][1])+20),
+                            pos=i['big_rec'][0],
                             color=(0,0,255),
                             scale_size=0.7)
                 add_text(   img,
@@ -168,49 +186,53 @@ class Armor_Detector:
             
          
     def reset_result(self):
-        self.center_list = None
         self.roi_single_list = None
         self.big_rec_list = None
         self.probability_list = None
         self.result_list = None
         self.final_result_list = None
-        self.success_flag = False
-        
         
     
-    
-    def _tradition_part(self,img_bgr:np.ndarray,img_bgr_exposure2:np.ndarray):
+    def _tradition_part(self,img_bgr:np.ndarray):
         
-        if img_bgr is None or img_bgr_exposure2 is None:
+        if img_bgr is None :
             lr1.warning("IMG : No img to apply tradition part")
             return None
       
-        tmp_list, tradition_time= self.tradition_detector.get_output(img_bgr,img_bgr_exposure2)
-        self.center_list,self.roi_single_list,self.big_rec_list  = tmp_list
+        [self.roi_single_list,self.big_rec_list], tradition_time= self.tradition_detector.get_output(img_bgr)
         
         if self.mode == 'Dbg':
             lr1.debug(f'Tradition Time : {tradition_time:.6f}')
             
-            if self.center_list is not None:
-                lr1.debug(f'Tradition Find Target : {len(self.center_list)}')
+            if self.big_rec_list is not None:
+                lr1.debug(f'Tradition Find Target Nums : {len(self.big_rec_list)}')
             else:
                 lr1.debug(f"Tradition Find Nothing")
                 
-    def _net_part(self):
-        if self.roi_single_list is None:
-            if self.mode == 'Dbg':
-                lr1.debug("IMG : No img to apply net part")
-            return None
-        
-        
-        
-        tmp_list,net_time = self.net_detector.get_output(self.roi_single_list)  
-        self.probability_list,self.result_list = tmp_list   
+    def _net_part(self,img_rgb_640:Union[np.ndarray,None]=None):
+        if self.net_detector.params.yolov5: 
+            
+            (big_rec_list,self.probability_list,self.result_list), net_time =self.net_detector.get_output([img_rgb_640])
+            self.big_rec_list = expand_rec_wid(big_rec_list,
+                                               expand_rate=self.depth_estimator.pnp_params.expand_rate,
+                                               img_size_yx=img_rgb_640.shape[:2])
+            
+        else:
+            if self.roi_single_list is None:
+                if self.mode == 'Dbg':
+                    lr1.debug("IMG : No img to apply net part")
+                return None
+            
+            else:
+                
+                tmp_list,net_time = self.net_detector.get_output(self.roi_single_list)
+                if tmp_list is not None:  
+                    self.probability_list,self.result_list = tmp_list
         
         if self.mode == 'Dbg':
             lr1.debug(f"Net Time : {net_time:.6f}")
             if self.probability_list is not None:
-                lr1.debug(f'Net Find Target : {len(self.probability_list)}')
+                lr1.debug(f'Net Find Target : {self.result_list}')
             else:
                 lr1.debug('Net Find Nothing')    
         
@@ -218,45 +240,46 @@ class Armor_Detector:
     def _filter_part(self):
         """apply confidence filter and depth estimation to get final result
         """
-        
-        self.final_result_list = []
-        
+        pro_list =[]
+        big_rec_list = []
+        result_list = []
         if self.probability_list is not None:
-            
             for i in range(len(self.probability_list)):
-                if self.probability_list[i] > self.net_detector.params.confidence:
+                if self.probability_list[i] > self.net_detector.params.conf_thres:
+                    pro_list.append(self.probability_list[i])
+                    big_rec_list.append(self.big_rec_list[i])
+                    result_list.append(self.result_list[i])
                     
-                    obj_class = 'small' if self.result_list[i] in ['2x','3x','4x','5x','basex','sentry'] else 'big'
-                    
-                    output = self.depth_estimator.get_result((self.big_rec_list[i],obj_class))
-                    
-                    if output is None:
-                        lr1.warning(f"Depth Estimator Fail to get result, skip this target")
-                        continue
-                    else:
-                        pos,rvec = output
-                        
-                    each_result = {'pos':pos,
-                                   'center':self.center_list[i],
-                                   'result':self.result_list[i],
-                                   'probability':self.probability_list[i],
-                                   'big_rec':self.big_rec_list[i],
-                                   'rvec':rvec}
-                    
-                    self.final_result_list.append(each_result)
+        self.probability_list = pro_list
+        self.big_rec_list = big_rec_list
+        self.result_list = result_list
+        
+        if self.mode == 'Dbg':
+            lr1.debug(f'Confience Filter Target Nums : {len(self.probability_list)}')
+
             
-            if len(self.final_result_list)>0:
-                self.success_flag = True
-                
-                #sorted(self.final_result_list,key=lambda x:x['probability'],reverse=True)
-                
-            else:
-                self.success_flag = False
-        else:
-            self.success_flag = False
+    def _depth_and_final_part(self):
+        self.final_result_list = []
+        for i,name in enumerate(self.result_list):
+        
+            obj_class = 'small' if name in self.depth_estimator.pnp_params.small_armor_name_list else 'big'
+            depth_info = self.depth_estimator.get_result((self.big_rec_list[i],obj_class))
+            if depth_info is None:
+                lr1.warning(f"Depth Estimator Fail to get result, skip this target {self.big_rec_list[i]} {name}")
+                continue
             
-   
-       
+            each_result = {
+                                    'result':self.result_list[i],
+                                    'probability':self.probability_list[i],
+                                    'big_rec':self.big_rec_list[i],
+                                    'pos':depth_info[0],
+                                    'rvec':depth_info[1]
+                                    }   
+            
+            self.final_result_list.append(each_result)
+        
+        
+    
             
 ############################################## tradition Detector#######################################################    
     
@@ -295,18 +318,18 @@ class Tradition_Detector:
         self.save_roi_key = save_roi_key
         
     @timing(1)
-    def get_output(self,img_bgr:np.ndarray,img_bgr_exposure2:np.ndarray)->Union[list,None]:
+    def get_output(self,img_bgr:np.ndarray)->Union[list,None]:
         """@timing
 
         Input:
-            img_bgr,img_bgr_in_exposure2 ,shape is (512,640,3)
+            img_bgr ,shape is (512,640,3)
         Returns:
-            [center_list,roi_binary_list,big_rec_list] (they are in same length)
+            [roi_binary_list,big_rec_list] (they are in same length)
         Notice:
             if Dbg,will draw on img_bgr
             
         """
-        if img_bgr is None or img_bgr_exposure2 is None:
+        if img_bgr is None:
             lr1.warning("IMG : tradition detector get None img")
         
             return None
@@ -319,12 +342,12 @@ class Tradition_Detector:
         big_rec_list,find_big_rec_time = self._find_big_rec(img_single,None)
         
         # No change to img_bgr
-        roi_transform_list , pickup_roi_transform_time = self._pickup_roi_transform(big_rec_list,img_bgr_exposure2)
+        roi_transform_list , pickup_roi_transform_time = self._pickup_roi_transform(big_rec_list,img_bgr)
         
         
         roi_binary_list, binary_roi_time = self._binary_roi_transform_list(roi_transform_list)
         
-        center_list = turn_big_rec_list_to_center_points_list(big_rec_list)
+        #center_list = turn_big_rec_list_to_center_points_list(big_rec_list)
         
         if self.mode == 'Dbg':
             lr1.debug(f'pre_process1_time : {preprocess_time1:.4f}, find_big_rec_time : {find_big_rec_time:.4f}, pickup_roi_transfomr_time : {pickup_roi_transform_time:.4f}, binary_roi_time : {binary_roi_time:.4f}')
@@ -359,7 +382,7 @@ class Tradition_Detector:
                     
                     
             
-        return [center_list,roi_binary_list,big_rec_list]
+        return [roi_binary_list,big_rec_list]
     
     def save_params_to_folder(self,tradition_config_folder_path:str = './tmp_tradition_config')->None:
         
@@ -581,12 +604,12 @@ class Tradition_Detector:
     
     
     @timing(1)
-    def _pickup_roi_transform(self,big_rec_list:list,img_bgr_exposure2:np.ndarray):
+    def _pickup_roi_transform(self,big_rec_list:list,img_bgr:np.ndarray):
         """@timing
 
         Args:
             big_rec_list (list): _description_
-            img_bgr_exposure2 (np.ndarray): _description_
+            img_bgr (np.ndarray): _description_
 
         Returns:
             _type_: _description_
@@ -605,7 +628,7 @@ class Tradition_Detector:
             i=order_rec_points(i)
             dst_points=np.array([[0,0],[wid-1,0],[wid-1,hei-1],[0,hei-1]],dtype=np.float32)
             M=cv2.getPerspectiveTransform(i.astype(np.float32),dst_points)
-            dst=cv2.warpPerspective(img_bgr_exposure2,M,(int(wid),int(hei)),flags=cv2.INTER_LINEAR)
+            dst=cv2.warpPerspective(img_bgr,M,(int(wid),int(hei)),flags=cv2.INTER_LINEAR)
             
             
             dst = cv2.resize(dst,self.roi_single_shape)
@@ -631,9 +654,24 @@ class Net_Detector:
         CHECK_INPUT_VALID(mode,'Dbg','Rel')
         
         self.mode = mode
+
+        
         self.params = Net_Params()
         
         self.load_params_from_folder(net_config_folder)
+        if self.params.yolov5:
+            self.yolov5_post_processor = Yolov5_Post_Processor(self.class_info,
+                                                               self.params.conf_thres,
+                                                               self.params.iou_thres,
+                                                               self.params.enemy_armor_index_list,
+                                                               self.params.agnostic,
+                                                               multi_label=False,
+                                                               labels=(),
+                                                               max_det=self.params.max_det,
+                                                               mode=self.mode
+                                                               )
+            
+        
         
         if self.params.engine_type == 'ort':
             self.input_dtype = np.float32 if self.params.input_dtype == 'float32' else np.float16
@@ -657,17 +695,27 @@ class Net_Detector:
     
     def load_params_from_folder(self,folder_path:str):
         
-        class_path = os.path.join(folder_path,'class.yaml')
         net_config_path = os.path.join(folder_path,'net_params.yaml')
         
         self.params.load_params_from_yaml(net_config_path)
+        if self.params.yolov5:
+            class_path = os.path.join(folder_path,'yolov5_class.yaml')
+        else:
+            class_path = os.path.join(folder_path,'classifier_class.yaml')
+        
         self.class_info = Data.get_file_info_from_yaml(class_path)
         
         if self.params.engine_type == 'ort':
-            self.model_path = os.path.join(folder_path,'model.onnx')
+            if self.params.yolov5:
+                self.model_path = os.path.join(folder_path,'yolov5.onnx')
+            else:
+                self.model_path = os.path.join(folder_path,'classifier.onnx')
         
         elif self.params.engine_type == 'trt':
-            self.model_path = os.path.join(folder_path,'model.trt')
+            if self.params.yolov5:
+                self.model_path = os.path.join(folder_path,'yolov5.trt')
+            else:
+                self.model_path = os.path.join(folder_path,'classifier.trt')
         
         else: 
             raise ValueError(f'Engine Type Error {self.params.engine_type}, only support ort and trt')
@@ -679,45 +727,77 @@ class Net_Detector:
         """@timing
 
         Input:
-            [roi_single1,roi_single2,...]
+            yolov5:
+                input_list: [img_rgb1,img_rgb2,...]
+            classifier:
+                input_list: [roi_single1,roi_single2,...]
 
         Returns:
-            [[probability1,probability2,...],[armor_type1,armortype2,...]]
+            yolov5:
+                [conts_list, pro_list, cls_name_list]
+            classifier:
+                [[probability1,probability2,...],[armor_type1,armortype2,...]]
+            None:
+                If input_list is None or len(input_list) == 0
         """
-        if input_list is None:
-            return [None,None]
-        
-        if len(input_list) == 0 :
-            return [None,None]
-        
-        
+        if input_list is None or len(input_list) == 0:
+            return None
+            
         
         inp = normalize_to_nparray(input_list,dtype=self.input_dtype)
+        if self.params.yolov5:
+            inp = np.transpose(inp,(0,3,1,2))
         
         if self.params.engine_type == 'ort':
             
-           
-            output,ref_time =self.engine.run(output_nodes_name_list=None,
+            model_output,ref_time =self.engine.run(output_nodes_name_list=None,
                             input_nodes_name_to_npvalue={self.onnx_inputname:inp})
-            probabilities_list,index_list = trans_logits_in_batch_to_result(output[0])
-            result_list = [self.class_info[index] for index in index_list]
+            
+            if self.params.yolov5:
+                
+                out, post_pro_t = self.yolov5_post_processor.get_output(model_output[0])
+                
+            else:
+                out,post_pro_t =  self._classifier_post_process(model_output[0]) 
             
             if self.mode == 'Dbg':
-                lr1.debug(f'Refence Time: {ref_time:.5f}')
-                
-            return [probabilities_list,result_list]
-        
+                lr1.debug(f'Refence Time: {ref_time:.5f}, Post Process Time: {post_pro_t:.5f}')
+            
+            return out
         
         elif self.params.engine_type == 'trt':
             
-            output,ref_time = self.engine.run({0:inp})
-            probabilities_list,index_list = trans_logits_in_batch_to_result(output[0])
-            result_list = [self.class_info[index] for index in index_list]
+            model_output,ref_time = self.engine.run({0:inp})
+            
+            if self.params.yolov5:
+                out, post_pro_t = self.yolov5_post_processor.get_output(model_output[0])
+                
+            else:
+                out,post_pro_t =  self._classifier_post_process(model_output[0]) 
             
             if self.mode == 'Dbg':
-                lr1.debug(f'Refence Time: {ref_time:.5f}')
+                lr1.debug(f'Refence Time: {ref_time:.5f}, Post Process Time: {post_pro_t:.5f}')
                 
-            return [probabilities_list,result_list]
+            return out 
+     
+    @timing(1)   
+    def _classifier_post_process(self,
+                                 model_model_output0):
+        """@timing(1)
+
+        Args:
+            model_model_output (_type_): _description_
+
+        Returns:
+            [probabilities_list,result_list]
+        """
+        
+        probabilities_list,index_list = trans_logits_in_batch_to_result(model_model_output0)
+
+        result_list = [self.class_info[i] for i in index_list]
+                
+        return [probabilities_list,result_list]
+            
             
             
             

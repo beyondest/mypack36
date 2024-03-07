@@ -23,7 +23,8 @@ if __name__ == '__main__':
                             output_format='bgr8',
                             camera_mode=mode,
                             camera_config_folder=camera_config_folder,
-                            armor_color=armor_color
+                            armor_color=armor_color,
+                            if_yolov5=True
                             )
     
     ca.print_show_params()
@@ -46,7 +47,7 @@ if __name__ == '__main__':
     #ca.enable_save_img('/mnt/d/datasets/autoaim/camera_img/red/based',save_img_interval=3)
     #ca.enbable_save_video('/mnt/d/datasets/autoaim/video2.mp4',fps=30)
     
-    de.depth_estimator.enable_trackbar_config(save_params_key='n')
+    #de.depth_estimator.enable_trackbar_config(save_params_key='n')
     
     with Custome_Context('camera',ca):
         
@@ -59,8 +60,9 @@ if __name__ == '__main__':
             t2 = time.perf_counter()
             print(f'get_img time:{t2-t1}')
             
-            result_list,t = de.get_result(img,img)
-        
+            #img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
+            result_list,t = de.get_result(img)
+
             t3 = time.perf_counter()
             print(f'get_result_time:{t3-t2}')
             
@@ -69,7 +71,6 @@ if __name__ == '__main__':
                     
             
             #ca._detect_trackbar_config()
-            
             #de.tradition_detector._detect_trackbar_config()
             #de.tradition_detector.filter1._detect_trackbar_config()
             #de.tradition_detector.filter2._detect_trackbar_config()
