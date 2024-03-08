@@ -1,18 +1,23 @@
 engine_type: ort
-input_dtype: float32
 
-# yolov5:images, mymodel:input
-input_name: images
 
-# only for classification model, yolo is 640 * 640
+# classification model params
+input_name: input
+output_name: output
 input_size:
 - 32
 - 32
+input_dtype: float32
 
-# yolov5:output0, mymodel:output
-output_name: output
+# yolov5 model params
+yolov5_input_name: images
+yolov5_output_name: output0
+yolov5_input_size: 
+- 640
+- 640
+yolov5_input_dtype: 'float32'
 
-yolov5: True
+
 # for nms params 
 conf_thres: 0.80
 iou_thres: 0.45

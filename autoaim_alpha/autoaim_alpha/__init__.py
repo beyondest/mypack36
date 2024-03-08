@@ -7,8 +7,8 @@ from .utils_network.data import Data
 from pyquaternion import Quaternion
 from visualization_msgs.msg import Marker
 
-#from autoaim_interface.msg import *
-from .haha import *
+from autoaim_interface.msg import *
+#from .haha import *
 
 
 
@@ -18,7 +18,7 @@ armor_type_list = ['1d','2x','3d','3x','4d','4x','5d','5x','based','basex','sent
 general_config = Data.get_file_info_from_yaml('/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/autoaim_alpha/config/general_params.yaml')
 mode = general_config['mode']
 armor_color = general_config['armor_color']
-
+if_yolov5 = general_config['if_yolov5']
 enemy_car_list=  general_config['enemy_car_list']
 armor_name_to_init_state = general_config['armor_name_to_init_state']
 

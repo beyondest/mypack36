@@ -32,13 +32,17 @@ class Net_Params(Params):
     def __init__(self) -> None:
         super().__init__()
         self.engine_type = 'ort'
+        
         self.input_name = 'input'
         self.output_name = 'output'
         self.input_size =  NET_INPUT_SIZE
         self.input_dtype = NET_INPUT_DTYPE
         
+        self.yolov5_input_name = 'images'
+        self.yolov5_output_name = 'output0'
+        self.yolov5_input_size = [640,640]
+        self.yolov5_input_dtype = 'float32'
         
-        self.yolov5 = True
         self.conf_thres = 0.25
         self.iou_thres = 0.45
         self.enemy_armor_index_list = [0,1]
@@ -58,24 +62,26 @@ class Armor_Detector:
                  tradition_config_folder :Union[str,None] = None,
                  net_config_folder :Union[str,None] = None,
                  save_roi_key:str = 'c',
-                 depth_estimator_config_yaml:Union[str,None] = None
+                 depth_estimator_config_yaml:Union[str,None] = None,
+                 if_yolov5:bool = True
                  ) -> None:
         
         CHECK_INPUT_VALID(armor_color,'red','blue')
         CHECK_INPUT_VALID(mode,'Dbg','Rel')
         self.mode = mode
-        
+        self.if_yolov5 = if_yolov5
         self.reset_result()
             
         self.net_detector = Net_Detector(
                                          mode=mode,
-                                         net_config_folder=net_config_folder
+                                         net_config_folder=net_config_folder,
+                                         if_yolov5=if_yolov5
                                          )
         self.depth_estimator = Depth_Estimator(depth_estimator_config_yaml,
                                             mode=mode
                                             )
         
-        if self.net_detector.params.yolov5:
+        if self.if_yolov5:
             lr1.warn('Will apply yolov5 detect')
         else:
             lr1.warn('Will apply tradition detect')
@@ -112,7 +118,7 @@ class Armor_Detector:
         
         self.reset_result()
         
-        if self.net_detector.params.yolov5:
+        if self.if_yolov5:
             img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
             self._net_part(img)
             lr1.warn('yolov5 need RGB, may be faster if you set camera output RGB')
@@ -210,7 +216,7 @@ class Armor_Detector:
                 lr1.debug(f"Tradition Find Nothing")
                 
     def _net_part(self,img_rgb_640:Union[np.ndarray,None]=None):
-        if self.net_detector.params.yolov5: 
+        if self.if_yolov5: 
             
             (big_rec_list,self.probability_list,self.result_list), net_time =self.net_detector.get_output([img_rgb_640])
             self.big_rec_list = expand_rec_wid(big_rec_list,
@@ -649,17 +655,18 @@ class Tradition_Detector:
 class Net_Detector:
     def __init__(self,
                  net_config_folder :str,
-                 mode:str = 'Dbg'
+                 mode:str = 'Dbg',
+                 if_yolov5:bool = True
                  ) -> None:
         CHECK_INPUT_VALID(mode,'Dbg','Rel')
         
         self.mode = mode
 
-        
+        self.if_yolov5 = if_yolov5
         self.params = Net_Params()
         
         self.load_params_from_folder(net_config_folder)
-        if self.params.yolov5:
+        if self.if_yolov5:
             self.yolov5_post_processor = Yolov5_Post_Processor(self.class_info,
                                                                self.params.conf_thres,
                                                                self.params.iou_thres,
@@ -674,15 +681,22 @@ class Net_Detector:
         
         
         if self.params.engine_type == 'ort':
-            self.input_dtype = np.float32 if self.params.input_dtype == 'float32' else np.float16
-            
+            if self.if_yolov5:
+                self.input_dtype = np.float32 if self.params.yolov5_input_dtype == 'float32' else np.float16
+            else:
+                self.input_dtype = np.float32 if self.params.input_dtype == 'float32' else np.float16
+                
+                
             self.engine = Onnx_Engine(self.model_path,if_offline=True)
-            self.onnx_inputname = self.params.input_name
-            self.onnx_outputname = self.params.output_name
+            self.onnx_inputname = self.params.yolov5_input_name if self.if_yolov5 else self.params.input_name
+            self.onnx_outputname = self.params.yolov5_output_name if self.if_yolov5 else self.params.output_name
 
         elif self.params.engine_type == 'trt':
-            
-            self.input_dtype = np.float32 if self.params.input_dtype == 'float32' else np.float16
+            if self.if_yolov5:
+                self.input_dtype = np.float32 if self.params.yolov5_input_dtype == 'float32' else np.float16
+            else:
+                self.input_dtype = np.float32 if self.params.input_dtype == 'float32' else np.float16
+                
             self.engine = TRT_Engine_2(self.model_path,
                                        max_batchsize=MAX_INPUT_BATCHSIZE)
         
@@ -698,7 +712,7 @@ class Net_Detector:
         net_config_path = os.path.join(folder_path,'net_params.yaml')
         
         self.params.load_params_from_yaml(net_config_path)
-        if self.params.yolov5:
+        if self.if_yolov5:
             class_path = os.path.join(folder_path,'yolov5_class.yaml')
         else:
             class_path = os.path.join(folder_path,'classifier_class.yaml')
@@ -706,13 +720,13 @@ class Net_Detector:
         self.class_info = Data.get_file_info_from_yaml(class_path)
         
         if self.params.engine_type == 'ort':
-            if self.params.yolov5:
+            if self.if_yolov5:
                 self.model_path = os.path.join(folder_path,'yolov5.onnx')
             else:
                 self.model_path = os.path.join(folder_path,'classifier.onnx')
         
         elif self.params.engine_type == 'trt':
-            if self.params.yolov5:
+            if self.if_yolov5:
                 self.model_path = os.path.join(folder_path,'yolov5.trt')
             else:
                 self.model_path = os.path.join(folder_path,'classifier.trt')
@@ -745,7 +759,7 @@ class Net_Detector:
             
         
         inp = normalize_to_nparray(input_list,dtype=self.input_dtype)
-        if self.params.yolov5:
+        if self.if_yolov5:
             inp = np.transpose(inp,(0,3,1,2))
         
         if self.params.engine_type == 'ort':
@@ -753,7 +767,7 @@ class Net_Detector:
             model_output,ref_time =self.engine.run(output_nodes_name_list=None,
                             input_nodes_name_to_npvalue={self.onnx_inputname:inp})
             
-            if self.params.yolov5:
+            if self.if_yolov5:
                 
                 out, post_pro_t = self.yolov5_post_processor.get_output(model_output[0])
                 
@@ -769,7 +783,7 @@ class Net_Detector:
             
             model_output,ref_time = self.engine.run({0:inp})
             
-            if self.params.yolov5:
+            if self.if_yolov5:
                 out, post_pro_t = self.yolov5_post_processor.get_output(model_output[0])
                 
             else:

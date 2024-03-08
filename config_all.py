@@ -8,7 +8,7 @@ import time
 
 armor_color = 'blue'
 mode = 'Dbg'
-
+if_yolvo5 = False
 camera_config_folder = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/autoaim_alpha/config/camera_config' 
 tradition_config_folder = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/autoaim_alpha/config/tradition_config'
 net_config_folder = '/home/liyuxuan/vscode/pywork_linux/autoaim_ws/src/mypack36/autoaim_alpha/config/net_config'
@@ -24,7 +24,7 @@ if __name__ == '__main__':
                             camera_mode=mode,
                             camera_config_folder=camera_config_folder,
                             armor_color=armor_color,
-                            if_yolov5=True
+                            if_yolov5=if_yolvo5
                             )
     
     ca.print_show_params()
@@ -35,7 +35,8 @@ if __name__ == '__main__':
                         tradition_config_folder=tradition_config_folder,
                         net_config_folder=net_config_folder,
                         save_roi_key='c',
-                        depth_estimator_config_yaml=depth_estimator_config_yaml_path
+                        depth_estimator_config_yaml=depth_estimator_config_yaml_path,
+                        if_yolov5=if_yolvo5
                         )
     
     #ca.enable_trackbar_config(press_key_to_save='a')

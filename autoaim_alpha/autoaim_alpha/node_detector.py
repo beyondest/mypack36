@@ -47,12 +47,15 @@ class Node_Detector(Node,Custom_Context_Obj):
                                             mode=node_detector_mode,
                                             tradition_config_folder=tradition_config_folder,
                                             net_config_folder=net_config_folder,
-                                            depth_estimator_config_yaml=depth_estimator_config_yaml_path
+                                            depth_estimator_config_yaml=depth_estimator_config_yaml_path,
+                                            if_yolov5=if_yolov5
                                              )
         
-        self.armor_detector.tradition_detector.enable_preprocess_config()
-        self.armor_detector.tradition_detector.filter1.enable_trackbar_config()
-        self.armor_detector.tradition_detector.filter2.enable_trackbar_config()
+        #self.armor_detector.tradition_detector.enable_preprocess_config()
+        #self.armor_detector.tradition_detector.filter1.enable_trackbar_config()
+        #self.armor_detector.tradition_detector.filter2.enable_trackbar_config()
+        
+        
         if node_detector_mode == 'Dbg':
             self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG)
 

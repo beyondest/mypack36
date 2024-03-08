@@ -433,6 +433,10 @@ def get_threshold(img_for_show_in_hist:np.ndarray,
         canvas_wid = 300
         canvas_hei = 300
         canvas = np.ones((canvas_wid,canvas_hei,3),dtype=np.uint8) * 255
+       
+        if hist.size == 0:
+            lr1.error(f'hist size is 0 ,hist {hist}')
+            return thresh
         non_zero_max_index = np.argwhere(hist > 0).max()
         if non_zero_max_index == 0:
             non_zero_max_index = 1

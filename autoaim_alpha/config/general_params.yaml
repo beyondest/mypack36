@@ -5,7 +5,7 @@ mode : Dbg
 # enemy armor color
 armor_color : blue
 
-
+if_yolov5: True
 # armor_distance : the distance between 2 opposite armors, unit: m
 # if armor_nums == 4: [x_distance, y_distance], x distance means maximum efficency direction of robot chassis 
 # if armor_nums == 2: [no_meaning, distance] 

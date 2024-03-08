@@ -35,13 +35,16 @@ class Node_Webcam_MV(Node,Custom_Context_Obj):
                                     output_format = camera_output_format,
                                     camera_mode=node_webcam_mv_mode,
                                     camera_config_folder = camera_config_folder,
-                                    armor_color=armor_color
+                                    armor_color=armor_color,
+                                    if_yolov5=if_yolov5
                                     )
         
         
-        self.mv.enable_trackbar_config()
+        #self.mv.enable_trackbar_config()
+        
+        
         if node_webcam_mv_mode == 'Dbg':
-            self.get_logger().set_level(rclpy.logging.LoggingSeverity.INFO)
+            self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG)
         
         
     def timer_pub_img_callback(self):
